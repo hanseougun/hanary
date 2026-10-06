@@ -209,6 +209,12 @@ const Map<String, List<String>> kamusRuangChat = {
   'Pesan ini ditarik': ['This message was unsent', 'このメッセージは取り消されました', '회수된 메시지예요', '此消息已被撤回'],
   'Pesan tidak bisa dibuka': ["Message can't be opened", 'メッセージを開けません', '메시지를 열 수 없어요', '无法打开消息'],
   'Pesan ditarik': ['Message unsent', '取り消されたメッセージ', '회수된 메시지', '消息已撤回'],
+  'Pesan itu sudah terlalu lama atau dihapus, jadi tidak bisa dibuka di chat.': [
+    'That message is too old or was deleted, so it can\'t be opened in the chat.',
+    'このメッセージは古すぎるか削除されたため、チャットで開けません。',
+    '이 메시지는 너무 오래되었거나 삭제되어 채팅에서 열 수 없어요.',
+    '该消息太久远或已被删除，无法在聊天中打开。',
+  ],
   'Pesan disematkan': ['Pinned messages', '固定されたメッセージ', '고정된 메시지', '置顶消息'],
   'Semua pesan disematkan': ['All pinned messages', '固定されたメッセージをすべて表示', '고정된 메시지 모두 보기', '全部置顶消息'],
   'Kamu': ['You', 'あなた', '나', '你'],
