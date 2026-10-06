@@ -159,10 +159,11 @@ class _PesanBerbintangScreenState extends State<PesanBerbintangScreen> {
                           ),
                         ],
                       ),
+                      // Dari dalam chat: kembali ke chat itu lalu menuju pesannya.
                       onTap: widget.chatId != null
-                          ? null
+                          ? () => Navigator.of(context).pop(b.pesan.id)
                           : () => Navigator.of(context).push(MaterialPageRoute<void>(
-                                builder: (_) => ChatRoomScreen(chatId: room.id, me: widget.me),
+                                builder: (_) => ChatRoomScreen(chatId: room.id, me: widget.me, sorotPesan: b.pesan.id),
                               )),
                     );
                   },

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:cryptography/cryptography.dart';
 import 'package:file_picker/file_picker.dart';
@@ -34,9 +35,12 @@ import 'profil_orang_screen.dart';
 
 /// Halaman percakapan (pribadi atau grup).
 class ChatRoomScreen extends StatefulWidget {
-  const ChatRoomScreen({super.key, required this.chatId, required this.me, this.draft});
+  const ChatRoomScreen({super.key, required this.chatId, required this.me, this.draft, this.sorotPesan});
   final String chatId;
   final String me;
+
+  /// Id pesan yang langsung dituju dan disorot saat chat dibuka.
+  final String? sorotPesan;
 
   /// Teks awal di kolom pesan (mis. saat membalas story).
   final String? draft;
@@ -76,9 +80,19 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   Timer? _detikRekam;
   static const _maksRekam = Duration(minutes: 5);
 
+  // Melompat ke satu pesan (dari pesan berbintang atau sematan).
+  final _gulir = ScrollController();
+  final _konteksPesan = <String, BuildContext>{};
+  List<ChatMessage>? _tampil;
+  String? _tujuan;
+  String? _sorot;
+  bool _melompat = false;
+  Timer? _hapusSorot;
+
   @override
   void initState() {
     super.initState();
+    _tujuan = widget.sorotPesan;
     ChatNotifier.instance.openChatId = widget.chatId;
     NotifikasiService.instance.hapusChat(widget.chatId);
     PesanDihapus.instance.muat(widget.chatId).then((_) {
@@ -94,6 +108,61 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   }
 
   void _simpanDraf() => DrafChat.instance.simpan(widget.chatId, _input.text);
+
+  void _lompatKe(String id) {
+    _tujuan = id;
+    _cobaLompat();
+  }
+
+  /// Gulir ke pesan [_tujuan] lalu sorot sebentar. Daftar dibangun sedikit
+  /// demi sedikit, jadi gulir naik bertahap sampai pesannya ditemukan.
+  Future<void> _cobaLompat() async {
+    final id = _tujuan;
+    final daftar = _tampil;
+    if (id == null || daftar == null || _melompat) return;
+    _tujuan = null;
+    if (!daftar.any((m) => m.id == id)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(tr('Pesan itu sudah terlalu lama atau dihapus, jadi tidak bisa dibuka di chat.'))),
+      );
+      return;
+    }
+    _melompat = true;
+    _hapusSorot?.cancel();
+    setState(() => _sorot = id);
+    try {
+      for (var n = 0; n < 300 && mounted; n++) {
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted) return;
+        final ctx = _konteksPesan[id];
+        if (ctx != null && ctx.mounted) {
+          await Scrollable.ensureVisible(ctx, alignment: 0.5, duration: const Duration(milliseconds: 300));
+          // Tinggi pesan di sekitarnya bisa berubah setelah isinya terbuka.
+          await Future<void>.delayed(const Duration(milliseconds: 250));
+          final lagi = _konteksPesan[id];
+          if (mounted && lagi != null && lagi.mounted) {
+            await Scrollable.ensureVisible(lagi, alignment: 0.5, duration: const Duration(milliseconds: 200));
+          }
+          break;
+        }
+        if (!_gulir.hasClients) continue;
+        final pos = _gulir.position;
+        if (n == 0) {
+          // Mulai dari pesan terbaru, lalu naik.
+          _gulir.jumpTo(0);
+        } else if (pos.pixels >= pos.maxScrollExtent) {
+          break;
+        } else {
+          _gulir.jumpTo(math.min(pos.pixels + pos.viewportDimension * 0.8, pos.maxScrollExtent));
+        }
+      }
+    } finally {
+      _melompat = false;
+    }
+    _hapusSorot = Timer(const Duration(milliseconds: 2500), () {
+      if (mounted) setState(() => _sorot = null);
+    });
+  }
 
   /// Mengambil pesan yang sedang dibalas, lalu menutup kutipannya.
   BalasanPesan? _ambilBalas() {
@@ -114,6 +183,8 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     DrafChat.instance.simpan(widget.chatId, _input.text, segera: true);
     _input.dispose();
     _fokus.dispose();
+    _gulir.dispose();
+    _hapusSorot?.cancel();
     _detikRekam?.cancel();
     _perekam?.cancel().whenComplete(() => _perekam?.dispose());
     super.dispose();
@@ -348,9 +419,10 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
           builder: (_) => GroupInfoScreen(chatId: room.id, me: widget.me),
         ));
       case 'bintang':
-        await Navigator.of(context).push(MaterialPageRoute<void>(
+        final id = await Navigator.of(context).push(MaterialPageRoute<String>(
           builder: (_) => PesanBerbintangScreen(me: widget.me, chatId: room.id),
         ));
+        if (id != null && mounted) _lompatKe(id);
       case 'hapus':
         final ok = await confirmDialog(
           context,
@@ -459,7 +531,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
               if (key == null) return const _WaitingForKey();
               return Column(
                 children: [
-                  if (room.pin.isNotEmpty) _PesanSemat(room: room, roomKey: key, me: widget.me),
+                  if (room.pin.isNotEmpty) _PesanSemat(room: room, roomKey: key, me: widget.me, onLompat: _lompatKe),
                   Expanded(child: _messageList(room, key)),
                   _bawah(room, key),
                 ],
@@ -484,11 +556,15 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
           final status = ObrolanSaya.instance.dari(room.id);
           final messages =
               semua.where((m) => !disembunyikan.contains(m.id) && !status.pesanTerhapus(m.createdAt)).toList();
+          _tampil = messages;
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _tandaiDibaca(room, messages);
+            if (!mounted) return;
+            _tandaiDibaca(room, messages);
+            if (_tujuan != null) _cobaLompat();
           });
           final lihatDibaca = UserFeed.of(widget.me).last?.kirimDibaca ?? true;
           return ListView.builder(
+            controller: _gulir,
             reverse: true,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             itemCount: messages.length + _unggahan.length + 1,
@@ -515,8 +591,13 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                 dibaca: lihatDibaca && _sudahDibaca(room, m),
                 berbintang: status.bintang.contains(m.id),
               );
-              if (!hariBaru) return bubble;
-              return Column(children: [_PemisahHari(waktu: m.createdAt ?? DateTime.now()), bubble]);
+              return _ItemPesan(
+                id: m.id,
+                daftar: _konteksPesan,
+                sorot: m.id == _sorot,
+                child:
+                    hariBaru ? Column(children: [_PemisahHari(waktu: m.createdAt ?? DateTime.now()), bubble]) : bubble,
+              );
             },
           );
         },
@@ -1193,13 +1274,14 @@ class _BubbleState extends State<_Bubble> {
   }
 }
 
-/// Pesan yang disematkan, tampil di atas percakapan. Ketuk untuk melihat
-/// pesan berikutnya; tekan lama untuk melihat semuanya.
+/// Pesan yang disematkan, tampil di atas percakapan. Ketuk untuk menuju
+/// pesannya (ketukan berikutnya ke sematan lain); tekan lama untuk melihat semuanya.
 class _PesanSemat extends StatefulWidget {
-  const _PesanSemat({required this.room, required this.roomKey, required this.me});
+  const _PesanSemat({required this.room, required this.roomKey, required this.me, required this.onLompat});
   final ChatRoom room;
   final SecretKey roomKey;
   final String me;
+  final void Function(String id) onLompat;
 
   @override
   State<_PesanSemat> createState() => _PesanSematState();
@@ -1241,6 +1323,10 @@ class _PesanSematState extends State<_PesanSemat> {
                   return ListTile(
                     leading: const Icon(Icons.push_pin),
                     title: b == null ? const Text('…') : KutipanBalasan(balas: b, me: widget.me),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      widget.onLompat(id);
+                    },
                     trailing: IconButton(
                       tooltip: tr('Lepas sematan'),
                       icon: const Icon(Icons.close_rounded),
@@ -1270,7 +1356,10 @@ class _PesanSematState extends State<_PesanSemat> {
     return Material(
       color: theme.colorScheme.surfaceContainerLow,
       child: InkWell(
-        onTap: () => setState(() => _ke++),
+        onTap: () {
+          widget.onLompat(id);
+          if (pin.length > 1) setState(() => _ke++);
+        },
         onLongPress: _semua,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
@@ -1662,6 +1751,55 @@ class _WaitingForKey extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Satu baris pesan di daftar. Mencatat posisinya agar bisa dituju, dan
+/// menyorot sebentar pesan yang baru saja dituju.
+class _ItemPesan extends StatefulWidget {
+  const _ItemPesan({required this.id, required this.daftar, required this.sorot, required this.child});
+  final String id;
+  final Map<String, BuildContext> daftar;
+  final bool sorot;
+  final Widget child;
+
+  @override
+  State<_ItemPesan> createState() => _ItemPesanState();
+}
+
+class _ItemPesanState extends State<_ItemPesan> {
+  @override
+  void initState() {
+    super.initState();
+    widget.daftar[widget.id] = context;
+  }
+
+  @override
+  void didUpdateWidget(covariant _ItemPesan old) {
+    super.didUpdateWidget(old);
+    if (old.id != widget.id) {
+      if (identical(old.daftar[old.id], context)) old.daftar.remove(old.id);
+      widget.daftar[widget.id] = context;
+    }
+  }
+
+  @override
+  void dispose() {
+    if (identical(widget.daftar[widget.id], context)) widget.daftar.remove(widget.id);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final warna = Theme.of(context).colorScheme.primary;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 400),
+      decoration: BoxDecoration(
+        color: widget.sorot ? warna.withValues(alpha: 0.18) : warna.withValues(alpha: 0),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: widget.child,
     );
   }
 }
