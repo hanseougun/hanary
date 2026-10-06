@@ -19,6 +19,7 @@ import '../../services/tugas_repository.dart';
 import '../../theme/hanary_theme.dart';
 import 'chat_widgets.dart';
 import 'group_info_screen.dart';
+import 'profil_orang_screen.dart';
 
 /// Halaman percakapan (pribadi atau grup).
 class ChatRoomScreen extends StatefulWidget {
@@ -222,7 +223,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                   ? () => Navigator.of(context).push(MaterialPageRoute(
                         builder: (_) => GroupInfoScreen(chatId: room.id, me: widget.me),
                       ))
-                  : null,
+                  : () => bukaProfil(context, other),
               child: Row(
                 children: [
                   Hero(
@@ -664,9 +665,12 @@ class _BubbleState extends State<_Bubble> {
                 if (widget.showSender)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 2),
-                    child: UserName(
-                      uid: m.senderId,
-                      style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.primary),
+                    child: GestureDetector(
+                      onTap: () => bukaProfil(context, m.senderId),
+                      child: UserName(
+                        uid: m.senderId,
+                        style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.primary),
+                      ),
                     ),
                   ),
                 FutureBuilder<IsiPesan?>(
