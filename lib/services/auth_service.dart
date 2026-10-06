@@ -36,6 +36,16 @@ class AuthService {
     }
   }
 
+  /// Header izin untuk memanggil API Google lain (mis. Google Drive) dengan
+  /// akun yang sedang login. Bisa memunculkan layar persetujuan sekali.
+  Future<Map<String, String>> googleHeaders(List<String> scopes) async {
+    await _ensureGoogleReady();
+    final headers = await GoogleSignIn.instance.authorizationClient
+        .authorizationHeaders(scopes, promptIfNecessary: true);
+    if (headers == null) throw StateError('Izin Google tidak diberikan');
+    return headers;
+  }
+
   Future<void> signOut() async {
     if (!kIsWeb) {
       await _ensureGoogleReady();

@@ -77,5 +77,10 @@ service cloud.firestore {
         allow update, delete: if false;
       }
     }
+
+    // Tugas: hanya pemiliknya yang boleh membaca dan mengubah.
+    match /users/{uid}/tugas/{tugasId} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
   }
 }

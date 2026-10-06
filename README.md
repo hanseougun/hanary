@@ -6,6 +6,10 @@ Aplikasi pengingat tugas dan deadline (Flutter + Firebase).
 (nama lengkap, sebutan, sekolah, kelas, bio) yang disimpan di Firestore,
 Beranda, dan navigasi bawah Beranda / Chat / Profil.
 
+**Tahap 2 (sudah ada):** catat tugas (judul, mapel, catatan), deadline tanggal + jam,
+status Belum / Sedang dikerjakan / Selesai, lampiran foto/gambar/file, dan notifikasi
+pengingat sehari sebelum deadline. Daftar tugas tampil di Beranda.
+
 **Tahap 3 (chat):** tambah teman (cari sebutan/email, kirim permintaan, terima/tolak),
 chat pribadi, grup (buat, tambah anggota, keluar), dengan enkripsi end-to-end.
 
@@ -19,12 +23,18 @@ lib/
   models/app_user.dart       data profil (koleksi `users/{uid}`)
   services/auth_service.dart login/logout Google
   services/user_repository.dart  baca/simpan profil
+  models/tugas.dart          data tugas (`users/{uid}/tugas/{id}`)
+  services/tugas_repository.dart     baca/simpan tugas
+  services/notifikasi_service.dart   pengingat H-1 (notifikasi lokal terjadwal)
+  services/lampiran_service.dart     lampiran: salinan di HP + Google Drive
+  services/drive_service.dart        upload/download Google Drive
   screens/
     auth_gate.dart           belum login → Selamat datang, profil kosong → isi profil, selain itu → Beranda
     welcome_screen.dart
     profile_form_screen.dart isi/edit profil
     home_shell.dart          navigasi bawah
-    beranda_screen.dart
+    beranda_screen.dart      ringkasan + daftar tugas
+    tugas_form_screen.dart   tambah/edit tugas
     chat_screen.dart         tab Chat: daftar obrolan dan teman
     chat/                    ruang chat, info grup, buat grup, cari teman
   services/chat_crypto.dart  enkripsi (X25519 + HKDF-SHA256 + AES-256-GCM)
@@ -83,6 +93,16 @@ tambahkan `CFBundleURLTypes` berisi `REVERSED_CLIENT_ID` dari `GoogleService-Inf
 
 `users/{uid}`: `email`, `namaLengkap`, `sebutan`, `sebutanLower` (untuk pencarian teman nanti),
 `sekolah`, `kelas`, `bio`, `fotoUrl`, `createdAt`, `updatedAt`.
+
+`users/{uid}/tugas/{id}`: `judul`, `mapel`, `catatan`, `deadline` (Timestamp),
+`status` (`belum` | `dikerjakan` | `selesai`), `lampiran` (daftar `{nama, berkas, ukuran, driveId}`),
+`createdAt`, `updatedAt`.
+
+Lampiran diunggah ke Google Drive milik pengguna (folder "Tugasku", izin `drive.file`
+yang hanya bisa melihat file buatan aplikasi ini) dan disalin di HP. Firebase Storage
+tidak dipakai karena butuh paket berbayar Blaze. Syarat: **Google Drive API** harus
+diaktifkan untuk proyek Google Cloud `hanary-b3341`:
+https://console.cloud.google.com/apis/library/drive.googleapis.com?project=hanary-b3341
 
 `friendRequests/{dari}_{ke}`: `from`, `to`, `createdAt`.
 `users/{uid}/teman/{uidTeman}`: `since`.
