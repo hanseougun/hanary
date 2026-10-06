@@ -6,6 +6,10 @@ Aplikasi pengingat tugas dan deadline (Flutter + Firebase).
 (nama lengkap, sebutan, sekolah, kelas, bio) yang disimpan di Firestore,
 Beranda, dan navigasi bawah Beranda / Chat / Profil.
 
+**Tahap 2 (sudah ada):** catat tugas (judul, mapel, catatan), deadline tanggal + jam,
+status Belum / Sedang dikerjakan / Selesai, lampiran foto/gambar/file, dan notifikasi
+pengingat sehari sebelum deadline. Daftar tugas tampil di Beranda.
+
 ## Struktur
 
 ```
@@ -16,12 +20,17 @@ lib/
   models/app_user.dart       data profil (koleksi `users/{uid}`)
   services/auth_service.dart login/logout Google
   services/user_repository.dart  baca/simpan profil
+  models/tugas.dart          data tugas (`users/{uid}/tugas/{id}`)
+  services/tugas_repository.dart     baca/simpan tugas
+  services/notifikasi_service.dart   pengingat H-1 (notifikasi lokal terjadwal)
+  services/lampiran_service.dart     lampiran disimpan di memori HP
   screens/
     auth_gate.dart           belum login → Selamat datang, profil kosong → isi profil, selain itu → Beranda
     welcome_screen.dart
     profile_form_screen.dart isi/edit profil
     home_shell.dart          navigasi bawah
-    beranda_screen.dart
+    beranda_screen.dart      ringkasan + daftar tugas
+    tugas_form_screen.dart   tambah/edit tugas
     chat_screen.dart         placeholder (tahap 3)
     profile_screen.dart
 firestore.rules              aturan keamanan Firestore
@@ -75,3 +84,10 @@ tambahkan `CFBundleURLTypes` berisi `REVERSED_CLIENT_ID` dari `GoogleService-Inf
 
 `users/{uid}`: `email`, `namaLengkap`, `sebutan`, `sebutanLower` (untuk pencarian teman nanti),
 `sekolah`, `kelas`, `bio`, `fotoUrl`, `createdAt`, `updatedAt`.
+
+`users/{uid}/tugas/{id}`: `judul`, `mapel`, `catatan`, `deadline` (Timestamp),
+`status` (`belum` | `dikerjakan` | `selesai`), `lampiran` (daftar `{nama, berkas, ukuran}`),
+`createdAt`, `updatedAt`.
+
+Lampiran disimpan di folder aplikasi di HP (bukan di cloud), karena Firebase Storage
+butuh paket berbayar Blaze. Firestore hanya menyimpan nama file-nya.

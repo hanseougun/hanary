@@ -13,6 +13,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // Dibutuhkan flutter_local_notifications untuk notifikasi terjadwal.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     // Kunci tanda tangan APK diambil dari GitHub Secrets saat build di GitHub Actions
@@ -60,4 +62,8 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
