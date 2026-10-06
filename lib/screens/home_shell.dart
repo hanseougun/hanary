@@ -19,8 +19,20 @@ class HomeShell extends StatefulWidget {
   State<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> {
+class _HomeShellState extends State<HomeShell> with SingleTickerProviderStateMixin {
   int _index = 0;
+
+  /// Animasi masuk tab yang baru dipilih. Tab lama langsung disembunyikan,
+  /// jadi dua halaman tidak pernah tampil bertumpuk.
+  late final _masuk = AnimationController(vsync: this, duration: const Duration(milliseconds: 220), value: 1);
+  late final _pudar = CurvedAnimation(parent: _masuk, curve: Curves.easeOut);
+  late final _geser = Tween(begin: const Offset(0, 0.015), end: Offset.zero).animate(_pudar);
+
+  void _pilihTab(int i) {
+    if (i == _index) return;
+    setState(() => _index = i);
+    _masuk.forward(from: 0);
+  }
 
   @override
   void initState() {
@@ -40,6 +52,8 @@ class _HomeShellState extends State<HomeShell> {
   @override
   void dispose() {
     NotifikasiService.instance.ketukChat.removeListener(_bukaChatDariNotifikasi);
+    _pudar.dispose();
+    _masuk.dispose();
     super.dispose();
   }
 
@@ -48,7 +62,7 @@ class _HomeShellState extends State<HomeShell> {
     final chatId = NotifikasiService.instance.ketukChat.value;
     if (chatId == null || !mounted) return;
     NotifikasiService.instance.ketukChat.value = null;
-    setState(() => _index = 1);
+    _pilihTab(1);
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => ChatRoomScreen(chatId: chatId, me: widget.user.uid),
     ));
@@ -62,32 +76,40 @@ class _HomeShellState extends State<HomeShell> {
       ChatScreen(user: widget.user),
       ProfileScreen(user: widget.user),
     ];
+    // Bilah judul transparan agar latar tema terlihat, tetapi menjadi
+    // pekat saat isi halaman digulir ke bawahnya (agar tidak tumpang tindih).
+    final latarBilah = theme.appBarTheme.backgroundColor ?? theme.colorScheme.surface;
     return Scaffold(
       body: LatarHanary(
         // Halaman di dalam tab dibuat transparan agar latar tema terlihat.
         child: Theme(
           data: theme.copyWith(
             scaffoldBackgroundColor: Colors.transparent,
-            appBarTheme: theme.appBarTheme.copyWith(backgroundColor: Colors.transparent),
+            appBarTheme: theme.appBarTheme.copyWith(
+              backgroundColor: WidgetStateColor.resolveWith(
+                (states) => states.contains(WidgetState.scrolledUnder) ? latarBilah : Colors.transparent,
+              ),
+            ),
           ),
           child: Stack(
+            fit: StackFit.expand,
             children: [
               for (var i = 0; i < pages.length; i++)
-                // Semua tab tetap hidup (seperti IndexedStack), tetapi
-                // perpindahannya memudar dan sedikit bergeser.
-                IgnorePointer(
-                  ignoring: i != _index,
+                // Semua tab tetap hidup (isi dan posisi gulir tidak hilang),
+                // tetapi hanya tab aktif yang digambar.
+                Offstage(
+                  offstage: i != _index,
                   child: TickerMode(
                     enabled: i == _index,
-                    child: AnimatedOpacity(
-                      opacity: i == _index ? 1 : 0,
-                      duration: const Duration(milliseconds: 260),
-                      curve: Curves.easeOut,
-                      child: AnimatedSlide(
-                        offset: i == _index ? Offset.zero : const Offset(0, 0.02),
-                        duration: const Duration(milliseconds: 260),
-                        curve: Curves.easeOut,
-                        child: pages[i],
+                    // Tombol tab tersembunyi tidak ikut "terbang" saat pindah halaman.
+                    child: HeroMode(
+                      enabled: i == _index,
+                      child: FadeTransition(
+                        opacity: i == _index ? _pudar : kAlwaysCompleteAnimation,
+                        child: SlideTransition(
+                          position: i == _index ? _geser : const AlwaysStoppedAnimation(Offset.zero),
+                          child: pages[i],
+                        ),
                       ),
                     ),
                   ),
@@ -98,7 +120,7 @@ class _HomeShellState extends State<HomeShell> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        onDestinationSelected: _pilihTab,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),

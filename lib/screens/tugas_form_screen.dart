@@ -253,7 +253,7 @@ class _TugasFormScreenState extends State<TugasFormScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Kamu akan diingatkan lewat notifikasi sehari sebelumnya.',
+                'Kamu diingatkan tiap hari jam 12.00 & 18.00, lalu 1 jam, 30, 15, dan 5 menit sebelum deadline.',
                 style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 20),

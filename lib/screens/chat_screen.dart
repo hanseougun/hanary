@@ -62,6 +62,7 @@ class _ChatScreenState extends State<ChatScreen> {
           ],
         ),
         floatingActionButton: FloatingActionButton.extended(
+          heroTag: 'fab-chat',
           onPressed: () => Navigator.of(context).push(MaterialPageRoute(
             builder: (_) => NewGroupScreen(me: me),
           )),

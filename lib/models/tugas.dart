@@ -72,9 +72,6 @@ class Tugas {
   final StatusTugas status;
   final List<Lampiran> lampiran;
 
-  /// Waktu notifikasi pengingat: sehari sebelum deadline.
-  DateTime get waktuPengingat => deadline.subtract(const Duration(days: 1));
-
   bool terlambat([DateTime? sekarang]) =>
       status != StatusTugas.selesai && deadline.isBefore(sekarang ?? DateTime.now());
 
