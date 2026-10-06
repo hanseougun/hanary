@@ -2,7 +2,8 @@ name: Build APK
 
 # Setiap ada perubahan di branch main, GitHub membuat file APK baru
 # dan menaruhnya di halaman Releases untuk di-download ke HP.
-# Untuk pull request, APK hanya dibuat untuk memastikan tidak ada error (tidak dirilis).
+# Pull request juga dibangun (untuk memastikan tidak ada yang rusak),
+# tetapi hanya main yang diterbitkan ke Releases.
 on:
   push:
     branches: [main]
@@ -40,15 +41,10 @@ jobs:
           TUGASKU_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       - run: cp build/app/outputs/flutter-apk/app-release.apk tugasku.apk
       - uses: softprops/action-gh-release@v2
-        if: github.event_name == 'push'
+        if: github.ref == 'refs/heads/main'
         with:
           tag_name: v0.1.${{ github.run_number }}
           name: Tugasku 0.1.${{ github.run_number }}
           body: Download tugasku.apk di bawah, lalu install di HP Android.
           files: tugasku.apk
           make_latest: true
-      - uses: actions/upload-artifact@v4
-        if: github.event_name == 'pull_request'
-        with:
-          name: tugasku-apk
-          path: tugasku.apk

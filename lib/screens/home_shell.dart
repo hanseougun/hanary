@@ -21,7 +21,7 @@ class _HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) {
     final pages = [
       BerandaScreen(user: widget.user),
-      const ChatScreen(),
+      ChatScreen(user: widget.user),
       ProfileScreen(user: widget.user),
     ];
     return Scaffold(
