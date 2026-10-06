@@ -14,9 +14,10 @@ enum StatusTugas {
 }
 
 /// File atau gambar yang dilampirkan ke tugas.
-/// Isinya disimpan di memori HP (folder aplikasi), Firestore hanya menyimpan namanya.
+/// Isinya disimpan di Google Drive pengguna (folder "Tugasku") dan disalin di HP;
+/// Firestore hanya menyimpan nama dan id-nya.
 class Lampiran {
-  const Lampiran({required this.nama, required this.berkas, this.ukuran = 0});
+  const Lampiran({required this.nama, required this.berkas, this.ukuran = 0, this.driveId});
 
   /// Nama asli file, mis. "soal-matematika.pdf".
   final String nama;
@@ -27,6 +28,11 @@ class Lampiran {
   /// Ukuran dalam byte.
   final int ukuran;
 
+  /// Id file di Google Drive, null jika belum terunggah.
+  final String? driveId;
+
+  Lampiran denganDriveId(String id) => Lampiran(nama: nama, berkas: berkas, ukuran: ukuran, driveId: id);
+
   bool get isGambar {
     final n = nama.toLowerCase();
     return const ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.bmp'].any(n.endsWith);
@@ -36,9 +42,11 @@ class Lampiran {
         nama: data['nama'] as String? ?? '',
         berkas: data['berkas'] as String? ?? '',
         ukuran: (data['ukuran'] as num?)?.toInt() ?? 0,
+        driveId: data['driveId'] as String?,
       );
 
-  Map<String, dynamic> toMap() => {'nama': nama, 'berkas': berkas, 'ukuran': ukuran};
+  Map<String, dynamic> toMap() =>
+      {'nama': nama, 'berkas': berkas, 'ukuran': ukuran, if (driveId != null) 'driveId': driveId};
 }
 
 /// Tugas yang disimpan di Firestore: `users/{uid}/tugas/{id}`.

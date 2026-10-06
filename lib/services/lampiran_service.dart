@@ -6,8 +6,10 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../models/tugas.dart';
+import 'drive_service.dart';
 
-/// Menyimpan gambar/file lampiran tugas di folder aplikasi di HP.
+/// Menyimpan gambar/file lampiran tugas: salinan di folder aplikasi di HP,
+/// dan cadangan di Google Drive pengguna agar bisa dibuka lagi di HP lain.
 class LampiranService {
   LampiranService._();
   static final instance = LampiranService._();
@@ -53,17 +55,54 @@ class LampiranService {
     return Lampiran(nama: nama, berkas: berkas, ukuran: await file.length());
   }
 
+  /// Mengunggah lampiran yang belum ada di Drive. Mengembalikan daftar baru
+  /// (yang berhasil diberi id Drive) dan kesalahan pertama, jika ada.
+  Future<(List<Lampiran>, Object?)> unggahSemua(List<Lampiran> semua) async {
+    final hasil = <Lampiran>[];
+    Object? error;
+    for (final l in semua) {
+      if (l.driveId != null || error != null) {
+        hasil.add(l);
+        continue;
+      }
+      try {
+        final id = await DriveService.instance.unggah(await fileDari(l), l.nama);
+        hasil.add(l.denganDriveId(id));
+      } catch (e) {
+        error = e;
+        hasil.add(l);
+      }
+    }
+    return (hasil, error);
+  }
+
   /// Membuka lampiran dengan aplikasi yang cocok (galeri, pembaca PDF, dll.).
+  /// Jika belum ada di HP ini, diunduh dulu dari Google Drive.
   /// Mengembalikan pesan kesalahan, atau null jika berhasil.
   Future<String?> buka(Lampiran l) async {
     final file = await fileDari(l);
-    if (!await file.exists()) return 'File ini tidak ada di HP ini.';
+    if (!await file.exists()) {
+      if (l.driveId == null) return 'File ini tidak ada di HP ini.';
+      try {
+        await DriveService.instance.unduh(l.driveId!, file);
+      } catch (e) {
+        return 'Gagal mengunduh dari Google Drive: $e';
+      }
+    }
     final hasil = await OpenFilex.open(file.path);
     return hasil.type == ResultType.done ? null : 'Tidak ada aplikasi untuk membuka file ini.';
   }
 
-  Future<void> hapus(Lampiran l) async {
+  /// Menghapus salinan di HP dan, jika [dariDrive], juga file di Google Drive.
+  Future<void> hapus(Lampiran l, {bool dariDrive = true}) async {
     final file = await fileDari(l);
     if (await file.exists()) await file.delete();
+    if (dariDrive && l.driveId != null) {
+      try {
+        await DriveService.instance.hapus(l.driveId!);
+      } catch (_) {
+        // Tidak apa-apa; file tetap bisa dihapus manual dari folder Tugasku di Drive.
+      }
+    }
   }
 }

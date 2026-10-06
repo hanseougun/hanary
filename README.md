@@ -23,7 +23,8 @@ lib/
   models/tugas.dart          data tugas (`users/{uid}/tugas/{id}`)
   services/tugas_repository.dart     baca/simpan tugas
   services/notifikasi_service.dart   pengingat H-1 (notifikasi lokal terjadwal)
-  services/lampiran_service.dart     lampiran disimpan di memori HP
+  services/lampiran_service.dart     lampiran: salinan di HP + Google Drive
+  services/drive_service.dart        upload/download Google Drive
   screens/
     auth_gate.dart           belum login → Selamat datang, profil kosong → isi profil, selain itu → Beranda
     welcome_screen.dart
@@ -89,5 +90,8 @@ tambahkan `CFBundleURLTypes` berisi `REVERSED_CLIENT_ID` dari `GoogleService-Inf
 `status` (`belum` | `dikerjakan` | `selesai`), `lampiran` (daftar `{nama, berkas, ukuran}`),
 `createdAt`, `updatedAt`.
 
-Lampiran disimpan di folder aplikasi di HP (bukan di cloud), karena Firebase Storage
-butuh paket berbayar Blaze. Firestore hanya menyimpan nama file-nya.
+Lampiran diunggah ke Google Drive milik pengguna (folder "Tugasku", izin `drive.file`
+yang hanya bisa melihat file buatan aplikasi ini) dan disalin di HP. Firebase Storage
+tidak dipakai karena butuh paket berbayar Blaze. Syarat: **Google Drive API** harus
+diaktifkan untuk proyek Google Cloud `hanary-b3341`:
+https://console.cloud.google.com/apis/library/drive.googleapis.com?project=hanary-b3341

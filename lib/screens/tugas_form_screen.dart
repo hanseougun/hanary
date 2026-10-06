@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models/tugas.dart';
+import '../services/drive_service.dart';
 import '../services/lampiran_service.dart';
 import '../services/tugas_repository.dart';
 
@@ -35,6 +36,7 @@ class _TugasFormScreenState extends State<TugasFormScreen> {
   /// Lampiran lama yang dibuang (file-nya dihapus setelah disimpan).
   final _lampiranDibuang = <Lampiran>[];
   bool _saving = false;
+  bool _mengunggah = false;
   bool _tersimpan = false;
 
   bool get _isBaru => widget.tugas == null;
@@ -51,7 +53,7 @@ class _TugasFormScreenState extends State<TugasFormScreen> {
     }
     if (!_tersimpan) {
       for (final l in _lampiranBaru) {
-        LampiranService.instance.hapus(l);
+        LampiranService.instance.hapus(l, dariDrive: false);
       }
     }
     super.dispose();
@@ -100,7 +102,7 @@ class _TugasFormScreenState extends State<TugasFormScreen> {
     setState(() {
       _lampiran.remove(l);
       if (_lampiranBaru.remove(l)) {
-        LampiranService.instance.hapus(l);
+        LampiranService.instance.hapus(l, dariDrive: false);
       } else {
         _lampiranDibuang.add(l);
       }
@@ -121,13 +123,26 @@ class _TugasFormScreenState extends State<TugasFormScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
     try {
+      var lampiran = _lampiran;
+      String? peringatan;
+      if (_lampiran.any((l) => l.driveId == null)) {
+        setState(() => _mengunggah = true);
+        final (hasil, error) = await LampiranService.instance.unggahSemua(_lampiran);
+        if (mounted) setState(() => _mengunggah = false);
+        lampiran = hasil;
+        if (error != null) {
+          peringatan = error is DriveException
+              ? 'Lampiran hanya tersimpan di HP ini. $error'
+              : 'Lampiran belum terunggah ke Google Drive, hanya tersimpan di HP ini.';
+        }
+      }
       final tugas = (widget.tugas ?? Tugas(id: '', judul: '', deadline: _deadline)).copyWith(
         judul: _judul.text,
         mapel: _mapel.text,
         catatan: _catatan.text,
         deadline: _deadline,
         status: _status,
-        lampiran: _lampiran,
+        lampiran: lampiran,
       );
       await TugasRepository.instance.save(widget.uid, tugas);
       _tersimpan = true;
@@ -136,7 +151,7 @@ class _TugasFormScreenState extends State<TugasFormScreen> {
       }
       if (!mounted) return;
       Navigator.of(context).pop();
-      _pesan(_isBaru ? 'Tugas ditambahkan' : 'Tugas disimpan');
+      _pesan(peringatan ?? (_isBaru ? 'Tugas ditambahkan' : 'Tugas disimpan'));
     } catch (e) {
       _pesan('Gagal menyimpan: $e');
     } finally {
@@ -292,10 +307,19 @@ class _TugasFormScreenState extends State<TugasFormScreen> {
                 onPressed: _saving ? null : _simpan,
                 style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
                 child: _saving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          if (_mengunggah) ...[
+                            const SizedBox(width: 12),
+                            const Text('Mengunggah ke Google Drive...'),
+                          ],
+                        ],
                       )
                     : const Text('Simpan'),
               ),
@@ -344,7 +368,9 @@ class _LampiranTile extends StatelessWidget {
           ),
         ),
         title: Text(lampiran.nama, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Text(_ukuran(lampiran.ukuran)),
+        subtitle: Text(
+          '${_ukuran(lampiran.ukuran)} · ${lampiran.driveId != null ? 'di Google Drive' : 'belum diunggah'}',
+        ),
         trailing: IconButton(
           tooltip: 'Buang lampiran',
           icon: const Icon(Icons.close),
