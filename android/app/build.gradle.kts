@@ -14,6 +14,21 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    // Kunci tanda tangan APK diambil dari GitHub Secrets saat build di GitHub Actions
+    // (lihat .github/workflows/build-apk.yml). Kunci tidak pernah disimpan di repo.
+    val keystorePath = System.getenv("TUGASKU_KEYSTORE_PATH")
+    val keystorePassword = System.getenv("TUGASKU_KEYSTORE_PASSWORD")
+    signingConfigs {
+        if (keystorePath != null && keystorePassword != null) {
+            create("tugasku") {
+                storeFile = file(keystorePath)
+                storePassword = keystorePassword
+                keyAlias = "tugasku"
+                keyPassword = keystorePassword
+            }
+        }
+    }
+
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.tugasku.tugasku"
@@ -31,9 +46,7 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("tugasku") ?: signingConfigs.getByName("debug")
         }
     }
 }
