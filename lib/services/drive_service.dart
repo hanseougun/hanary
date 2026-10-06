@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 
 import 'auth_service.dart';
 
-/// Upload/download lampiran ke Google Drive milik pengguna, di folder "Tugasku".
+/// Upload/download lampiran ke Google Drive milik pengguna, di folder "Hanary".
 /// Izin `drive.file` hanya memberi akses ke file yang dibuat aplikasi ini.
 class DriveService {
   DriveService._();
@@ -29,7 +29,7 @@ class DriveService {
 
   Future<String> _folder(Map<String, String> headers) async {
     if (_folderId != null) return _folderId!;
-    final q = "name='Tugasku' and mimeType='$_mimeFolder' and trashed=false";
+    final q = "name='Hanary' and mimeType='$_mimeFolder' and trashed=false";
     final cari = await http.get(
       Uri.parse(_api).replace(queryParameters: {'q': q, 'fields': 'files(id)', 'spaces': 'drive'}),
       headers: headers,
@@ -41,7 +41,7 @@ class DriveService {
     final buat = await http.post(
       Uri.parse('$_api?fields=id'),
       headers: {...headers, 'Content-Type': 'application/json'},
-      body: jsonEncode({'name': 'Tugasku', 'mimeType': _mimeFolder}),
+      body: jsonEncode({'name': 'Hanary', 'mimeType': _mimeFolder}),
     );
     if (buat.statusCode != 200) _gagal(buat, buat.body);
     return _folderId = jsonDecode(buat.body)['id'] as String;

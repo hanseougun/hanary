@@ -14,7 +14,7 @@ enum StatusTugas {
 }
 
 /// File atau gambar yang dilampirkan ke tugas.
-/// Isinya disimpan di Google Drive pengguna (folder "Tugasku") dan disalin di HP;
+/// Isinya disimpan di Google Drive pengguna (folder "Hanary") dan disalin di HP;
 /// Firestore hanya menyimpan nama dan id-nya.
 class Lampiran {
   const Lampiran({required this.nama, required this.berkas, this.ukuran = 0, this.driveId});

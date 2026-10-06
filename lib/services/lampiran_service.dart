@@ -101,7 +101,7 @@ class LampiranService {
       try {
         await DriveService.instance.hapus(l.driveId!);
       } catch (_) {
-        // Tidak apa-apa; file tetap bisa dihapus manual dari folder Tugasku di Drive.
+        // Tidak apa-apa; file tetap bisa dihapus manual dari folder Hanary di Drive.
       }
     }
   }
