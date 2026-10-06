@@ -36,15 +36,32 @@ jobs:
         run: |
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/tugasku.jks"
           echo "TUGASKU_KEYSTORE_PATH=$RUNNER_TEMP/tugasku.jks" >> "$GITHUB_ENV"
-      - run: flutter build apk --release
+      # APK dipecah per jenis prosesor HP (split-per-abi) dan kode Dart
+      # diperkecil (obfuscate), agar ukuran file jauh lebih kecil.
+      - run: >-
+          flutter build apk --release --split-per-abi
+          --obfuscate --split-debug-info=build/debug-info
+          --build-name=0.1.${{ github.run_number }} --build-number=${{ github.run_number }}
         env:
           TUGASKU_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-      - run: cp build/app/outputs/flutter-apk/app-release.apk hanary.apk
+      # hanary.apk: untuk hampir semua HP Android (64-bit, sekitar 2017 ke atas).
+      # hanary-hp-lama.apk: untuk HP lama 32-bit jika hanary.apk tidak bisa dipasang.
+      - name: Siapkan file APK
+        run: |
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk hanary.apk
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk hanary-hp-lama.apk
+          echo "### Ukuran APK" >> "$GITHUB_STEP_SUMMARY"
+          ls -l hanary*.apk | awk '{printf "- %s: %.1f MB\n", $9, $5/1048576}' >> "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_STEP_SUMMARY"
       - uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: v0.1.${{ github.run_number }}
           name: Hanary 0.1.${{ github.run_number }}
-          body: Download hanary.apk di bawah, lalu install di HP Android.
-          files: hanary.apk
+          body: |
+            Download hanary.apk di bawah, lalu install di HP Android.
+            Jika muncul pesan "aplikasi tidak kompatibel" (HP lama 32-bit), pakai hanary-hp-lama.apk.
+          files: |
+            hanary.apk
+            hanary-hp-lama.apk
           make_latest: true

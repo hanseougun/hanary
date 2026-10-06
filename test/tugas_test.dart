@@ -26,9 +26,8 @@ void main() {
     expect(baca.lampiran.single.isGambar, isFalse);
   });
 
-  test('pengingat sehari sebelum deadline, status tak dikenal jadi Belum', () {
+  test('status tak dikenal jadi Belum, terlambat jika lewat deadline', () {
     final tugas = Tugas(id: 't', judul: 'x', deadline: deadline);
-    expect(tugas.waktuPengingat, DateTime(2026, 10, 9, 23, 59));
     expect(StatusTugas.dari('aneh'), StatusTugas.belum);
     expect(tugas.terlambat(DateTime(2026, 10, 11)), isTrue);
     expect(tugas.copyWith(status: StatusTugas.selesai).terlambat(DateTime(2026, 10, 11)), isFalse);

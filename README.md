@@ -8,7 +8,7 @@ Beranda, dan navigasi bawah Beranda / Chat / Profil.
 
 **Tahap 2 (sudah ada):** catat tugas (judul, mapel, catatan), deadline tanggal + jam,
 status Belum / Sedang dikerjakan / Selesai, lampiran foto/gambar/file, dan notifikasi
-pengingat sehari sebelum deadline. Daftar tugas tampil di Beranda.
+pengingat tiap hari jam 12.00 & 18.00 dan menjelang deadline (1 jam, 30, 15, 5 menit), plus pemberitahuan jika deadline terlewat. Daftar tugas tampil di Beranda.
 
 **Tahap 3 (chat):** tambah teman (cari sebutan/email, kirim permintaan, terima/tolak),
 chat pribadi, grup (buat, tambah anggota, keluar), dengan enkripsi end-to-end.
@@ -25,7 +25,7 @@ lib/
   services/user_repository.dart  baca/simpan profil
   models/tugas.dart          data tugas (`users/{uid}/tugas/{id}`)
   services/tugas_repository.dart     baca/simpan tugas
-  services/notifikasi_service.dart   pengingat H-1 (notifikasi lokal terjadwal)
+  services/notifikasi_service.dart   notifikasi lokal terjadwal (jadwalnya di jadwal_pengingat.dart)
   services/lampiran_service.dart     lampiran: salinan di HP + Google Drive
   services/drive_service.dart        upload/download Google Drive
   screens/

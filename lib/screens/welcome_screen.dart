@@ -92,7 +92,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                 const SizedBox(height: 28),
                 for (final (i, ikon, teks) in const [
                   (0, Icons.checklist_rounded, 'Catat tugas beserta file atau gambarnya'),
-                  (1, Icons.notifications_active_rounded, 'Pengingat sehari sebelum deadline'),
+                  (1, Icons.notifications_active_rounded, 'Pengingat harian sampai deadline'),
                   (2, Icons.groups_rounded, 'Chat dengan teman dan buat grup'),
                 ])
                   MunculBertahap(

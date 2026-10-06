@@ -81,9 +81,34 @@ class _BerandaScreenState extends State<BerandaScreen> {
   @override
   void initState() {
     super.initState();
-    NotifikasiService.instance.mintaIzin();
+    _siapkanIzin();
     // Jadwal pengingat selalu mengikuti data tugas terbaru.
     _sub = TugasRepository.instance.watch(widget.user.uid).listen(NotifikasiService.instance.sinkron, onError: (_) {});
+  }
+
+  /// Izin notifikasi, lalu (sekali saja) tawarkan izin alarm tepat waktu
+  /// agar pengingat 5 menit sebelum deadline tidak telat.
+  Future<void> _siapkanIzin() async {
+    final notif = NotifikasiService.instance;
+    await notif.mintaIzin();
+    if (!await notif.perluTawarkanAlarmTepat() || !mounted) return;
+    final izinkan = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.alarm_on_rounded),
+        title: const Text('Pengingat tepat waktu'),
+        content: const Text(
+          'Agar pengingat 1 jam, 30, 15, dan 5 menit sebelum deadline muncul tepat waktu, '
+          'izinkan Hanary memakai "Alarm & pengingat" di halaman berikutnya.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Nanti saja')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Izinkan')),
+        ],
+      ),
+    );
+    await notif.mintaIzinAlarmTepat(buka: izinkan ?? false);
+    if (izinkan ?? false) await notif.jadwalUlang();
   }
 
   @override
@@ -183,6 +208,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
     final theme = Theme.of(context);
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'fab-beranda',
         onPressed: _bukaForm,
         icon: const Icon(Icons.add_rounded),
         label: const Text('Tugas baru', style: TextStyle(fontWeight: FontWeight.w700)),

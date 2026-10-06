@@ -47,6 +47,14 @@ android {
         versionName = flutter.versionName
     }
 
+    // Pustaka native (.so) disimpan terkompresi di dalam APK, sehingga
+    // file APK yang di-download jauh lebih kecil.
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
     buildTypes {
         release {
             signingConfig = signingConfigs.findByName("tugasku") ?: signingConfigs.getByName("debug")

@@ -3,6 +3,8 @@
     <!-- Notifikasi pengingat deadline: izin tampil dan jadwal ulang setelah HP dinyalakan ulang. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <!-- Agar pengingat 1 jam/30/15/5 menit sebelum deadline muncul tepat waktu. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <!-- Lampiran hanya membuka file milik aplikasi sendiri, jadi izin baca galeri
          yang ikut dibawa paket open_filex tidak diperlukan. -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove"/>
