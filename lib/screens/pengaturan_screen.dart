@@ -1,17 +1,21 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/hanary_theme.dart';
 import '../theme/pengaturan_tampilan.dart';
 import '../widgets/hanary_widgets.dart';
 import 'kebijakan_privasi_screen.dart';
+import 'pengaturan/pengaturan_chat_screen.dart';
 
-/// Halaman Pengaturan: tampilan (mode gelap/terang, tema latar) dan tentang aplikasi.
+/// Halaman Pengaturan: tampilan (mode gelap/terang, tema latar), chat & privasi,
+/// dan tentang aplikasi.
 class PengaturanScreen extends StatelessWidget {
   const PengaturanScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final pengaturan = PengaturanTampilan.instance;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
     return Scaffold(
       appBar: AppBar(title: const Text('Pengaturan')),
       body: ListenableBuilder(
@@ -83,9 +87,20 @@ class PengaturanScreen extends StatelessWidget {
                 ),
               ),
             ),
+            if (uid != null) ...[
+              const _JudulBagian('Chat & privasi'),
+              MunculBertahap(
+                urutan: 1,
+                child: Card(
+                  margin: EdgeInsets.zero,
+                  clipBehavior: Clip.antiAlias,
+                  child: PengaturanChatBagian(uid: uid, shrinkWrap: true),
+                ),
+              ),
+            ],
             const _JudulBagian('Tentang'),
             MunculBertahap(
-              urutan: 1,
+              urutan: 2,
               child: Card(
                 margin: EdgeInsets.zero,
                 clipBehavior: Clip.antiAlias,

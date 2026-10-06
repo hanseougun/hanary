@@ -6,6 +6,7 @@ import 'package:intl/date_symbol_data_local.dart';
 
 import 'app.dart';
 import 'firebase_options.dart';
+import 'services/chat_notifier.dart';
 import 'services/notifikasi_service.dart';
 import 'theme/pengaturan_tampilan.dart';
 
@@ -19,5 +20,6 @@ Future<void> main() async {
   await initializeDateFormatting('id_ID');
   await NotifikasiService.instance.init();
   await PengaturanTampilan.instance.muat();
+  await ChatNotifier.daftarLatar();
   runApp(const HanaryApp());
 }

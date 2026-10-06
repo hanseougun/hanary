@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../models/app_user.dart';
 import '../services/auth_service.dart';
+import '../services/avatar_service.dart';
 import '../theme/hanary_theme.dart';
 import '../widgets/hanary_widgets.dart';
+import 'chat/chat_widgets.dart';
 import 'pengaturan_screen.dart';
 import 'profile_form_screen.dart';
 
@@ -25,6 +27,48 @@ class ProfileScreen extends StatelessWidget {
     if (ok == true) await AuthService.instance.signOut();
   }
 
+  Future<void> _fotoProfil(BuildContext context) async {
+    final pilihan = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Pilih foto dari galeri'),
+              onTap: () => Navigator.pop(ctx, 'galeri'),
+            ),
+            if (user.fotoVer != null)
+              ListTile(
+                leading: const Icon(Icons.restart_alt),
+                title: Text(user.fotoUrl != null ? 'Pakai foto akun Google' : 'Hapus foto'),
+                onTap: () => Navigator.pop(ctx, 'hapus'),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (pilihan == null) return;
+    try {
+      if (pilihan == 'hapus') {
+        await AvatarService.instance.hapusFotoUser(user.uid);
+        return;
+      }
+      final foto = await AvatarService.instance.pilihFoto();
+      if (foto == null) return;
+      await AvatarService.instance.simpanFotoUser(user.uid, foto);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Foto profil diganti')));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal mengganti foto: $e')));
+      }
+    }
+  }
+
   void _buka(BuildContext context, Widget halaman) {
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => halaman));
   }
@@ -33,7 +77,6 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final gaya = GayaHanary.dari(context);
-    final foto = user.fotoUrl;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profil'),
@@ -67,18 +110,21 @@ class ProfileScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(3),
                     decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
-                    child: Hero(
-                      tag: 'foto-profil',
-                      child: CircleAvatar(
-                        radius: 46,
-                        backgroundColor: theme.colorScheme.primaryContainer,
-                        backgroundImage: foto != null ? NetworkImage(foto) : null,
-                        child: foto == null
-                            ? Text(
-                                user.sebutan.isNotEmpty ? user.sebutan[0].toUpperCase() : '?',
-                                style: theme.textTheme.headlineMedium,
-                              )
-                            : null,
+                    child: GestureDetector(
+                      onTap: () => _fotoProfil(context),
+                      child: Stack(
+                        children: [
+                          UserAvatar(uid: user.uid, radius: 46),
+                          Positioned(
+                            right: 0,
+                            bottom: 0,
+                            child: CircleAvatar(
+                              radius: 15,
+                              backgroundColor: theme.colorScheme.primary,
+                              child: Icon(Icons.photo_camera_rounded, size: 16, color: theme.colorScheme.onPrimary),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),

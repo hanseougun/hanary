@@ -2,6 +2,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import 'chat_notifier.dart';
+import 'presence_service.dart';
+
 /// Login dan logout dengan akun Google melalui Firebase Auth.
 class AuthService {
   AuthService._();
@@ -47,6 +50,8 @@ class AuthService {
   }
 
   Future<void> signOut() async {
+    ChatNotifier.instance.stop();
+    await PresenceService.instance.stop();
     if (!kIsWeb) {
       await _ensureGoogleReady();
       await GoogleSignIn.instance.signOut();

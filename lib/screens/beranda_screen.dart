@@ -12,6 +12,7 @@ import '../services/notifikasi_service.dart';
 import '../services/tugas_repository.dart';
 import '../theme/hanary_theme.dart';
 import '../widgets/hanary_widgets.dart';
+import 'chat/chat_widgets.dart';
 import 'tugas_form_screen.dart';
 
 /// Pilihan saring daftar tugas di Beranda.
@@ -371,23 +372,12 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final gaya = GayaHanary.dari(context);
-    final foto = user.fotoUrl;
     return Row(
       children: [
         Container(
           padding: const EdgeInsets.all(2.5),
           decoration: BoxDecoration(shape: BoxShape.circle, gradient: gaya.gradasiUtama),
-          child: CircleAvatar(
-            radius: 24,
-            backgroundColor: theme.colorScheme.surface,
-            backgroundImage: foto != null ? NetworkImage(foto) : null,
-            child: foto == null
-                ? Text(
-                    user.sebutan.isNotEmpty ? user.sebutan[0].toUpperCase() : '?',
-                    style: theme.textTheme.titleLarge,
-                  )
-                : null,
-          ),
+          child: UserAvatar(uid: user.uid, radius: 24),
         ),
         const SizedBox(width: 12),
         Expanded(

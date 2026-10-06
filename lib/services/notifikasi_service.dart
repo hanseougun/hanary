@@ -24,7 +24,21 @@ class NotifikasiService {
     ),
   );
 
+  static const _detailChat = NotificationDetails(
+    android: AndroidNotificationDetails(
+      'pesan_chat',
+      'Pesan chat',
+      channelDescription: 'Pesan baru dari teman dan grup',
+      importance: Importance.high,
+      priority: Priority.high,
+      category: AndroidNotificationCategory.message,
+    ),
+  );
+
   final _plugin = FlutterLocalNotificationsPlugin();
+
+  /// Id chat dari notifikasi yang baru saja diketuk (untuk dibuka).
+  final ketukChat = ValueNotifier<String?>(null);
   bool _siap = false;
   Future<void> _antrean = Future.value();
 
@@ -42,11 +56,43 @@ class NotifikasiService {
         settings: const InitializationSettings(
           android: AndroidInitializationSettings('@mipmap/ic_launcher'),
         ),
+        onDidReceiveNotificationResponse: (r) => _diketuk(r.payload),
       );
       _siap = true;
+      final awal = await _plugin.getNotificationAppLaunchDetails();
+      if (awal?.didNotificationLaunchApp ?? false) {
+        _diketuk(awal!.notificationResponse?.payload);
+      }
     } catch (e) {
       debugPrint('Notifikasi tidak bisa disiapkan: $e');
     }
+  }
+
+  void _diketuk(String? payload) {
+    if (payload != null && payload.startsWith(_prefixChat)) {
+      ketukChat.value = payload.substring(_prefixChat.length);
+    }
+  }
+
+  static const _prefixChat = 'chat:';
+
+  /// Menampilkan notifikasi pesan chat. Satu notifikasi per ruang chat;
+  /// pesan baru menggantikan notifikasi lama dari chat yang sama.
+  Future<void> tampilkanChat({required String chatId, required String judul, required String isi}) async {
+    if (!_siap) return;
+    await _plugin.show(
+      id: idNotifikasi('$_prefixChat$chatId'),
+      title: judul,
+      body: isi,
+      notificationDetails: _detailChat,
+      payload: '$_prefixChat$chatId',
+    );
+  }
+
+  /// Menghapus notifikasi chat saat chat-nya dibuka.
+  Future<void> hapusChat(String chatId) async {
+    if (!_siap) return;
+    await _plugin.cancel(id: idNotifikasi('$_prefixChat$chatId'));
   }
 
   /// Meminta izin menampilkan notifikasi (Android 13 ke atas).
