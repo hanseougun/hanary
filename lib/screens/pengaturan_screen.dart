@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../l10n/bahasa.dart';
 import '../theme/hanary_theme.dart';
 import '../theme/pengaturan_tampilan.dart';
 import '../widgets/hanary_widgets.dart';
@@ -12,6 +13,27 @@ import 'pengaturan/pengaturan_chat_screen.dart';
 class PengaturanScreen extends StatelessWidget {
   const PengaturanScreen({super.key});
 
+  Future<void> _pilihBahasa(BuildContext context) async {
+    final sekarang = PengaturanBahasa.instance.bahasa;
+    final dipilih = await showModalBottomSheet<Bahasa>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: RadioGroup<Bahasa>(
+          groupValue: sekarang,
+          onChanged: (b) => Navigator.pop(ctx, b),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final b in Bahasa.values) RadioListTile<Bahasa>(value: b, title: Text(b.nama)),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (dipilih != null) await PengaturanBahasa.instance.setBahasa(dipilih);
+  }
+
   @override
   Widget build(BuildContext context) {
     final pengaturan = PengaturanTampilan.instance;
@@ -19,10 +41,25 @@ class PengaturanScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Pengaturan')),
       body: ListenableBuilder(
-        listenable: pengaturan,
+        listenable: Listenable.merge([pengaturan, PengaturanBahasa.instance]),
         builder: (context, _) => ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
           children: [
+            const _JudulBagian('Bahasa'),
+            MunculBertahap(
+              child: Card(
+                margin: EdgeInsets.zero,
+                clipBehavior: Clip.antiAlias,
+                child: ListTile(
+                  leading: const Icon(Icons.translate_rounded),
+                  title: const Text('Bahasa aplikasi'),
+                  subtitle: Text(PengaturanBahasa.instance.bahasa.nama),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => _pilihBahasa(context),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
             const _JudulBagian('Tampilan'),
             MunculBertahap(
               child: Card(
