@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../l10n/bahasa.dart';
 import '../models/app_user.dart';
 
 /// Baca/tulis profil pengguna di koleksi `users`.
@@ -59,5 +60,5 @@ class UsernameDipakai implements Exception {
   const UsernameDipakai();
 
   @override
-  String toString() => 'Username ini sudah dipakai orang lain. Coba yang lain.';
+  String toString() => tr('Username ini sudah dipakai orang lain. Coba yang lain.');
 }

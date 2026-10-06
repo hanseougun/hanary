@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tugasku/l10n/bahasa.dart';
 import 'package:tugasku/l10n/kamus.dart';
 
@@ -18,5 +19,18 @@ void main() {
   test('tr mengisi bagian yang berubah dan kembali ke Bahasa Indonesia jika belum ada', () {
     expect(tr('Teks tanpa terjemahan {x}', {'x': 5}), 'Teks tanpa terjemahan 5');
     expect(tr('Halo'), 'Halo');
+  });
+
+  test('ganti bahasa dan penanda konteks', () async {
+    SharedPreferences.setMockInitialValues({});
+    TestWidgetsFlutterBinding.ensureInitialized();
+    expect(tr('Keluar§panggilan'), 'Keluar');
+    await PengaturanBahasa.instance.setBahasa(Bahasa.en);
+    expect(tr('Keluar§panggilan'), 'Outgoing');
+    expect(tr('Keluar'), isNot('Outgoing'));
+    await PengaturanBahasa.instance.setBahasa(Bahasa.ja);
+    expect(tr('Keluar§panggilan'), '発信');
+    await PengaturanBahasa.instance.setBahasa(Bahasa.id);
+    expect(tr('Keluar'), 'Keluar');
   });
 }

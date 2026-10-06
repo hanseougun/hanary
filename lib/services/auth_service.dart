@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../l10n/bahasa.dart';
 import 'chat_notifier.dart';
 import 'obrolan_saya.dart';
 import 'panggilan_service.dart';
@@ -48,7 +49,7 @@ class AuthService {
     await _ensureGoogleReady();
     final headers =
         await GoogleSignIn.instance.authorizationClient.authorizationHeaders(scopes, promptIfNecessary: true);
-    if (headers == null) throw StateError('Izin Google tidak diberikan');
+    if (headers == null) throw StateError(tr('Izin Google tidak diberikan'));
     return headers;
   }
 

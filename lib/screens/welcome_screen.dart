@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/bahasa.dart';
 import '../services/auth_service.dart';
 import '../theme/hanary_theme.dart';
 import '../widgets/hanary_widgets.dart';
@@ -13,8 +14,7 @@ class WelcomeScreen extends StatefulWidget {
 
 class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProviderStateMixin {
   bool _loading = false;
-  late final _melayang = AnimationController(vsync: this, duration: const Duration(seconds: 3))
-    ..repeat(reverse: true);
+  late final _melayang = AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat(reverse: true);
 
   @override
   void dispose() {
@@ -29,7 +29,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Login gagal: $e')),
+        SnackBar(content: Text(tr('Login gagal: {error}', {'error': e}))),
       );
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -65,7 +65,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                   urutan: 1,
                   child: Text.rich(
                     TextSpan(children: [
-                      const TextSpan(text: 'Selamat datang di\n'),
+                      TextSpan(text: '${tr('Selamat datang di')}\n'),
                       WidgetSpan(
                         alignment: PlaceholderAlignment.baseline,
                         baseline: TextBaseline.alphabetic,
@@ -83,8 +83,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                 MunculBertahap(
                   urutan: 2,
                   child: Text(
-                    'Catat semua tugasmu, atur deadline, dan dapatkan pengingat '
-                    'sebelum terlambat. Kerjakan bareng teman lewat chat dan grup.',
+                    tr('Catat semua tugasmu, atur deadline, dan dapatkan pengingat '
+                        'sebelum terlambat. Kerjakan bareng teman lewat chat dan grup.'),
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyLarge?.copyWith(color: colors.onSurfaceVariant),
                   ),
@@ -99,7 +99,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                     urutan: 3 + i,
                     jeda: const Duration(milliseconds: 120),
                     geser: const Offset(-24, 0),
-                    child: _Feature(icon: ikon, text: teks, warna: gaya.gradasi[i.isEven ? 0 : 1]),
+                    child: _Feature(icon: ikon, text: tr(teks), warna: gaya.gradasi[i.isEven ? 0 : 1]),
                   ),
                 const Spacer(flex: 2),
                 MunculBertahap(
@@ -125,7 +125,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                             )
                           : const Icon(Icons.login_rounded),
-                      label: const Text('Masuk dengan Google'),
+                      label: Text(tr('Masuk dengan Google')),
                       style: FilledButton.styleFrom(
                         minimumSize: const Size.fromHeight(56),
                         backgroundColor: Colors.transparent,

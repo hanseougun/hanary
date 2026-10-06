@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../l10n/bahasa.dart';
 import '../models/tugas.dart';
 import '../services/drive_service.dart';
 import '../services/lampiran_service.dart';
@@ -66,7 +67,7 @@ class _TugasFormScreenState extends State<TugasFormScreen> {
       initialDate: _deadline,
       firstDate: DateTime.now().subtract(const Duration(days: 365)),
       lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
-      helpText: 'Tanggal deadline',
+      helpText: tr('Tanggal deadline'),
     );
     if (tanggal == null) return;
     setState(() {
@@ -78,7 +79,7 @@ class _TugasFormScreenState extends State<TugasFormScreen> {
     final jam = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(_deadline),
-      helpText: 'Jam deadline',
+      helpText: tr('Jam deadline'),
     );
     if (jam == null) return;
     setState(() {
@@ -95,7 +96,7 @@ class _TugasFormScreenState extends State<TugasFormScreen> {
         _lampiranBaru.addAll(baru);
       });
     } catch (e) {
-      _pesan('Gagal menambah lampiran: $e');
+      _pesan(tr('Gagal menambah lampiran: {galat}', {'galat': e}));
     }
   }
 
@@ -133,8 +134,8 @@ class _TugasFormScreenState extends State<TugasFormScreen> {
         lampiran = hasil;
         if (error != null) {
           peringatan = error is DriveException
-              ? 'Lampiran hanya tersimpan di HP ini. $error'
-              : 'Lampiran belum terunggah ke Google Drive, hanya tersimpan di HP ini.';
+              ? tr('Lampiran hanya tersimpan di HP ini. {galat}', {'galat': error})
+              : tr('Lampiran belum terunggah ke Google Drive, hanya tersimpan di HP ini.');
         }
       }
       final tugas = (widget.tugas ?? Tugas(id: '', judul: '', deadline: _deadline)).copyWith(
@@ -152,9 +153,9 @@ class _TugasFormScreenState extends State<TugasFormScreen> {
       }
       if (!mounted) return;
       Navigator.of(context).pop();
-      _pesan(peringatan ?? (_isBaru ? 'Tugas ditambahkan' : 'Tugas disimpan'));
+      _pesan(peringatan ?? (_isBaru ? tr('Tugas ditambahkan') : tr('Tugas disimpan')));
     } catch (e) {
-      _pesan('Gagal menyimpan: $e');
+      _pesan(tr('Gagal menyimpan: {galat}', {'galat': e}));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -164,11 +165,11 @@ class _TugasFormScreenState extends State<TugasFormScreen> {
     final yakin = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Hapus tugas?'),
-        content: Text('"${widget.tugas!.judul}" dan lampirannya akan dihapus.'),
+        title: Text(tr('Hapus tugas?')),
+        content: Text(tr('"{judul}" dan lampirannya akan dihapus.', {'judul': widget.tugas!.judul})),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Hapus')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Batal'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(tr('Hapus'))),
         ],
       ),
     );
@@ -180,24 +181,24 @@ class _TugasFormScreenState extends State<TugasFormScreen> {
       }
       if (!mounted) return;
       Navigator.of(context).pop();
-      _pesan('Tugas dihapus');
+      _pesan(tr('Tugas dihapus'));
     } catch (e) {
-      _pesan('Gagal menghapus: $e');
+      _pesan(tr('Gagal menghapus: {galat}', {'galat': e}));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final tanggal = DateFormat('EEEE, d MMMM y', 'id_ID').format(_deadline);
+    final tanggal = DateFormat('EEEE, d MMMM y', kodeTanggal).format(_deadline);
     final jam = DateFormat('HH:mm').format(_deadline);
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isBaru ? 'Tugas baru' : 'Edit tugas'),
+        title: Text(_isBaru ? tr('Tugas baru') : tr('Edit tugas')),
         actions: [
           if (!_isBaru)
             IconButton(
-              tooltip: 'Bagikan ke teman atau grup',
+              tooltip: tr('Bagikan ke teman atau grup'),
               icon: const Icon(Icons.share_outlined),
               onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
                 builder: (_) => BagikanTugasScreen(me: widget.uid, tugas: widget.tugas!),
@@ -205,7 +206,7 @@ class _TugasFormScreenState extends State<TugasFormScreen> {
             ),
           if (!_isBaru)
             IconButton(
-              tooltip: 'Hapus tugas',
+              tooltip: tr('Hapus tugas'),
               icon: const Icon(Icons.delete_outline),
               onPressed: _saving ? null : _hapus,
             ),
@@ -219,20 +220,20 @@ class _TugasFormScreenState extends State<TugasFormScreen> {
             children: [
               TextFormField(
                 controller: _judul,
-                decoration: const InputDecoration(labelText: 'Judul tugas *'),
+                decoration: InputDecoration(labelText: tr('Judul tugas *')),
                 textCapitalization: TextCapitalization.sentences,
                 textInputAction: TextInputAction.next,
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Wajib diisi' : null,
+                validator: (v) => (v == null || v.trim().isEmpty) ? tr('Wajib diisi') : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _mapel,
-                decoration: const InputDecoration(labelText: 'Mata pelajaran / kuliah'),
+                decoration: InputDecoration(labelText: tr('Mata pelajaran / kuliah')),
                 textCapitalization: TextCapitalization.words,
                 textInputAction: TextInputAction.next,
               ),
               const SizedBox(height: 20),
-              Text('Deadline', style: theme.textTheme.titleSmall),
+              Text(tr('Deadline'), style: theme.textTheme.titleSmall),
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -253,17 +254,17 @@ class _TugasFormScreenState extends State<TugasFormScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Kamu diingatkan tiap hari jam 12.00 & 18.00, lalu 1 jam, 30, 15, dan 5 menit sebelum deadline.',
+                tr('Kamu diingatkan tiap hari jam 12.00 & 18.00, lalu 1 jam, 30, 15, dan 5 menit sebelum deadline.'),
                 style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 20),
-              Text('Status', style: theme.textTheme.titleSmall),
+              Text(tr('Status'), style: theme.textTheme.titleSmall),
               const SizedBox(height: 8),
               SegmentedButton<StatusTugas>(
-                segments: const [
-                  ButtonSegment(value: StatusTugas.belum, label: Text('Belum')),
-                  ButtonSegment(value: StatusTugas.dikerjakan, label: Text('Dikerjakan')),
-                  ButtonSegment(value: StatusTugas.selesai, label: Text('Selesai')),
+                segments: [
+                  ButtonSegment(value: StatusTugas.belum, label: Text(tr('Belum'))),
+                  ButtonSegment(value: StatusTugas.dikerjakan, label: Text(tr('Dikerjakan'))),
+                  ButtonSegment(value: StatusTugas.selesai, label: Text(tr('Selesai'))),
                 ],
                 selected: {_status},
                 showSelectedIcon: false,
@@ -272,16 +273,16 @@ class _TugasFormScreenState extends State<TugasFormScreen> {
               const SizedBox(height: 20),
               TextFormField(
                 controller: _catatan,
-                decoration: const InputDecoration(
-                  labelText: 'Catatan',
-                  hintText: 'Detail tugas, halaman buku, dll.',
+                decoration: InputDecoration(
+                  labelText: tr('Catatan'),
+                  hintText: tr('Detail tugas, halaman buku, dll.'),
                   alignLabelWithHint: true,
                 ),
                 maxLines: 4,
                 textCapitalization: TextCapitalization.sentences,
               ),
               const SizedBox(height: 20),
-              Text('Lampiran', style: theme.textTheme.titleSmall),
+              Text(tr('Lampiran'), style: theme.textTheme.titleSmall),
               const SizedBox(height: 8),
               for (final l in _lampiran)
                 _LampiranTile(
@@ -298,7 +299,7 @@ class _TugasFormScreenState extends State<TugasFormScreen> {
                         return [if (foto != null) foto];
                       }),
                       icon: const Icon(Icons.photo_camera_outlined),
-                      label: const Text('Foto'),
+                      label: Text(tr('Foto')),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -306,7 +307,7 @@ class _TugasFormScreenState extends State<TugasFormScreen> {
                     child: OutlinedButton.icon(
                       onPressed: () => _tambahLampiran(LampiranService.instance.pilihFile),
                       icon: const Icon(Icons.attach_file),
-                      label: const Text('Gambar / file'),
+                      label: Text(tr('Gambar / file')),
                     ),
                   ),
                 ],
@@ -326,11 +327,11 @@ class _TugasFormScreenState extends State<TugasFormScreen> {
                           ),
                           if (_mengunggah) ...[
                             const SizedBox(width: 12),
-                            const Text('Mengunggah ke Google Drive...'),
+                            Text(tr('Mengunggah ke Google Drive...')),
                           ],
                         ],
                       )
-                    : const Text('Simpan'),
+                    : Text(tr('Simpan')),
               ),
             ],
           ),
@@ -378,10 +379,10 @@ class _LampiranTile extends StatelessWidget {
         ),
         title: Text(lampiran.nama, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Text(
-          '${_ukuran(lampiran.ukuran)} · ${lampiran.driveId != null ? 'di Google Drive' : 'belum diunggah'}',
+          '${_ukuran(lampiran.ukuran)} · ${lampiran.driveId != null ? tr('di Google Drive') : tr('belum diunggah')}',
         ),
         trailing: IconButton(
-          tooltip: 'Buang lampiran',
+          tooltip: tr('Buang lampiran'),
           icon: const Icon(Icons.close),
           onPressed: onHapus,
         ),

@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../l10n/bahasa.dart';
+
 import 'chat_room.dart';
 import 'tugas.dart';
 
@@ -118,10 +120,10 @@ class IsiPesan {
   /// Ringkasan satu baris untuk daftar chat dan notifikasi.
   String ringkas() => switch (kind) {
         MessageKind.teks => teks,
-        MessageKind.gambar => teks.isEmpty ? '📷 Foto' : '📷 $teks',
+        MessageKind.gambar => teks.isEmpty ? '📷 ${tr('Foto')}' : '📷 $teks',
         MessageKind.file => '📎 ${berkas!.nama}',
-        MessageKind.tugas => '📋 Tugas: ${tugas!.judul}',
-        MessageKind.suara => '🎤 Pesan suara (${formatDurasi(berkas!.durasiMs)})',
+        MessageKind.tugas => '📋 ${tr('Tugas: {judul}', {'judul': tugas!.judul})}',
+        MessageKind.suara => '🎤 ${tr('Pesan suara ({durasi})', {'durasi': formatDurasi(berkas!.durasiMs)})}',
       };
 }
 

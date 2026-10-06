@@ -2,17 +2,23 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../l10n/bahasa.dart';
+
 /// Jenis notifikasi yang suaranya bisa diatur sendiri.
 enum JenisNotif {
   chat('pesan_chat', 'Pesan chat', 'Pesan baru dari teman dan grup'),
   tugas('deadline_tugas', 'Pengingat deadline', 'Pengingat harian dan menjelang deadline tugas');
 
-  const JenisNotif(this.saluranDasar, this.namaSaluran, this.deskripsi);
+  const JenisNotif(this.saluranDasar, this._namaSaluran, this._deskripsi);
 
   /// Id saluran notifikasi Android untuk setelan bawaan.
   final String saluranDasar;
-  final String namaSaluran;
-  final String deskripsi;
+  final String _namaSaluran;
+  final String _deskripsi;
+
+  /// Nama dan deskripsi saluran (terlihat di Pengaturan HP), dalam bahasa yang dipilih.
+  String get namaSaluran => tr(_namaSaluran);
+  String get deskripsi => tr(_deskripsi);
 }
 
 /// Setelan suara dan durasi untuk satu jenis notifikasi.
@@ -45,9 +51,9 @@ class SetelanNotif {
   bool get nadaSendiri => suara != suaraBawaan && suara != suaraSenyap;
 
   String get labelSuara => switch (suara) {
-        suaraBawaan => 'Bawaan HP',
-        suaraSenyap => 'Tanpa suara',
-        _ => namaSuara.isEmpty ? 'Nada pilihan' : namaSuara,
+        suaraBawaan => tr('Bawaan HP'),
+        suaraSenyap => tr('Tanpa suara'),
+        _ => namaSuara.isEmpty ? tr('Nada pilihan') : namaSuara,
       };
 
   SetelanNotif copyWith({String? suara, String? namaSuara, bool? getar, bool? berulang, int? tampilMenit}) =>

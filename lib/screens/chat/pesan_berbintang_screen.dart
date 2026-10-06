@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/bahasa.dart';
 import '../../models/chat_room.dart';
 import '../../services/chat_repository.dart';
 import '../../services/obrolan_saya.dart';
@@ -58,10 +59,10 @@ class _PesanBerbintangScreenState extends State<PesanBerbintangScreen> {
           if (m == null || status.pesanTerhapus(m.createdAt)) continue;
           String ringkas;
           if (m.ditarik) {
-            ringkas = 'Pesan ini ditarik';
+            ringkas = tr('Pesan ini ditarik');
           } else {
             final isi = await repo.decryptIsi(room.id, m.kind, m.box, key);
-            ringkas = isi?.ringkas() ?? 'Pesan tidak bisa dibuka';
+            ringkas = isi?.ringkas() ?? tr('Pesan tidak bisa dibuka');
           }
           hasil.add(_Berbintang(room: room, pesan: m, ringkas: ringkas));
         } catch (_) {}
@@ -83,7 +84,7 @@ class _PesanBerbintangScreenState extends State<PesanBerbintangScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Pesan berbintang')),
+      appBar: AppBar(title: Text(tr('Pesan berbintang'))),
       body: StreamBuilder<List<ChatRoom>>(
         stream: _rooms,
         builder: (context, roomSnap) => ListenableBuilder(
@@ -105,10 +106,10 @@ class _PesanBerbintangScreenState extends State<PesanBerbintangScreen> {
                         children: [
                           Icon(Icons.star_outline_rounded, size: 64, color: theme.colorScheme.outline),
                           const SizedBox(height: 12),
-                          Text('Belum ada pesan berbintang', style: theme.textTheme.titleMedium),
+                          Text(tr('Belum ada pesan berbintang'), style: theme.textTheme.titleMedium),
                           const SizedBox(height: 4),
-                          const Text(
-                            'Tekan lama sebuah pesan di chat, lalu pilih Beri bintang agar mudah dicari lagi.',
+                          Text(
+                            tr('Tekan lama sebuah pesan di chat, lalu pilih Beri bintang agar mudah dicari lagi.'),
                             textAlign: TextAlign.center,
                           ),
                         ],
@@ -123,7 +124,7 @@ class _PesanBerbintangScreenState extends State<PesanBerbintangScreen> {
                     final b = daftar[i];
                     final room = b.room;
                     final pengirim = b.pesan.senderId == widget.me
-                        ? Text('Kamu', style: theme.textTheme.labelLarge)
+                        ? Text(tr('Kamu'), style: theme.textTheme.labelLarge)
                         : UserName(uid: b.pesan.senderId, style: theme.textTheme.labelLarge);
                     return ListTile(
                       leading: UserAvatar(uid: b.pesan.senderId),
@@ -136,7 +137,7 @@ class _PesanBerbintangScreenState extends State<PesanBerbintangScreen> {
                               child: room.isGroup
                                   ? Text(room.name, maxLines: 1, overflow: TextOverflow.ellipsis)
                                   : room.otherMember(widget.me) == b.pesan.senderId
-                                      ? const Text('Kamu')
+                                      ? Text(tr('Kamu'))
                                       : UserName(uid: room.otherMember(widget.me)),
                             ),
                           ],

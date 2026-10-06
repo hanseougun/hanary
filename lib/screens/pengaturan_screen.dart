@@ -39,7 +39,7 @@ class PengaturanScreen extends StatelessWidget {
     final pengaturan = PengaturanTampilan.instance;
     final uid = FirebaseAuth.instance.currentUser?.uid;
     return Scaffold(
-      appBar: AppBar(title: const Text('Pengaturan')),
+      appBar: AppBar(title: Text(tr('Pengaturan'))),
       body: ListenableBuilder(
         listenable: Listenable.merge([pengaturan, PengaturanBahasa.instance]),
         builder: (context, _) => ListView(
@@ -52,7 +52,7 @@ class PengaturanScreen extends StatelessWidget {
                 clipBehavior: Clip.antiAlias,
                 child: ListTile(
                   leading: const Icon(Icons.translate_rounded),
-                  title: const Text('Bahasa aplikasi'),
+                  title: Text(tr('Bahasa aplikasi')),
                   subtitle: Text(PengaturanBahasa.instance.bahasa.nama),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => _pilihBahasa(context),
@@ -69,23 +69,23 @@ class PengaturanScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Mode', style: TextStyle(fontWeight: FontWeight.w700)),
+                      Text(tr('Mode'), style: TextStyle(fontWeight: FontWeight.w700)),
                       const SizedBox(height: 10),
                       SizedBox(
                         width: double.infinity,
                         child: SegmentedButton<ThemeMode>(
-                          segments: const [
+                          segments: [
                             ButtonSegment(
                               value: ThemeMode.system,
-                              label: Text('Otomatis'),
+                              label: Text(tr('Otomatis')),
                             ),
                             ButtonSegment(
                               value: ThemeMode.light,
-                              label: Text('Terang'),
+                              label: Text(tr('Terang')),
                             ),
                             ButtonSegment(
                               value: ThemeMode.dark,
-                              label: Text('Gelap'),
+                              label: Text(tr('Gelap')),
                             ),
                           ],
                           selected: {pengaturan.mode},
@@ -95,13 +95,13 @@ class PengaturanScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Otomatis mengikuti pengaturan HP-mu.',
+                        tr('Otomatis mengikuti pengaturan HP-mu.'),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
                       ),
                       const SizedBox(height: 20),
-                      const Text('Tema latar', style: TextStyle(fontWeight: FontWeight.w700)),
+                      Text(tr('Tema latar'), style: TextStyle(fontWeight: FontWeight.w700)),
                       const SizedBox(height: 12),
                       GridView.count(
                         crossAxisCount: 3,
@@ -145,8 +145,8 @@ class PengaturanScreen extends StatelessWidget {
                   children: [
                     ListTile(
                       leading: const Icon(Icons.privacy_tip_outlined),
-                      title: const Text('Kebijakan privasi'),
-                      subtitle: const Text('Data apa yang disimpan dan bagaimana dilindungi'),
+                      title: Text(tr('Kebijakan privasi')),
+                      subtitle: Text(tr('Data apa yang disimpan dan bagaimana dilindungi')),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
                         builder: (_) => const KebijakanPrivasiScreen(),
@@ -155,19 +155,19 @@ class PengaturanScreen extends StatelessWidget {
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     ListTile(
                       leading: const Icon(Icons.info_outline_rounded),
-                      title: const Text('Tentang Hanary'),
+                      title: Text(tr('Tentang Hanary')),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () => showDialog<void>(
                         context: context,
                         builder: (context) => AlertDialog(
                           icon: const LogoHanary(ukuran: 56, bayangan: false),
                           title: const Text('Hanary'),
-                          content: const Text(
-                            'Catat tugas & deadline, kerjakan bareng teman.\n\n© 2026 hanseougun',
+                          content: Text(
+                            '${tr('Catat tugas & deadline, kerjakan bareng teman.')}\n\n© 2026 hanseougun',
                             textAlign: TextAlign.center,
                           ),
                           actions: [
-                            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Tutup')),
+                            TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Tutup'))),
                           ],
                         ),
                       ),
@@ -193,7 +193,7 @@ class _JudulBagian extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 20, 4, 10),
       child: Text(
-        teks.toUpperCase(),
+        tr(teks).toUpperCase(),
         style: theme.textTheme.labelMedium?.copyWith(
           color: theme.colorScheme.primary,
           fontWeight: FontWeight.w800,
@@ -250,7 +250,7 @@ class _PilihanTema extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            tema.nama,
+            tema.namaTr,
             style: theme.textTheme.labelMedium?.copyWith(
               fontWeight: dipilih ? FontWeight.w800 : FontWeight.w500,
             ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/bahasa.dart';
 import '../../services/chat_repository.dart';
 import '../../services/friend_repository.dart';
 import '../../services/story_repository.dart';
@@ -94,7 +95,7 @@ class _StoryItemState extends State<_StoryItem> {
                       child: story == null
                           ? _Gelembung(
                               key: const ValueKey('kosong'),
-                              teks: 'Tulis catatan',
+                              teks: tr('Tulis catatan'),
                               warna: theme.colorScheme.surfaceContainerHighest,
                               warnaTeks: theme.colorScheme.onSurfaceVariant,
                             )
@@ -135,7 +136,7 @@ class _StoryItemState extends State<_StoryItem> {
                 ),
                 const SizedBox(height: 4),
                 _milikSaya
-                    ? Text('Catatanmu', style: theme.textTheme.labelSmall)
+                    ? Text(tr('Catatanmu'), style: theme.textTheme.labelSmall)
                     : UserName(uid: uid, style: theme.textTheme.labelSmall),
               ],
             ),
@@ -252,10 +253,10 @@ class _TulisStoryState extends State<_TulisStory> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Catatanmu', style: theme.textTheme.titleLarge),
+          Text(tr('Catatanmu'), style: theme.textTheme.titleLarge),
           const SizedBox(height: 4),
           Text(
-            'Muncul sebagai gelembung di atas fotomu di daftar chat teman selama 24 jam.',
+            tr('Muncul sebagai gelembung di atas fotomu di daftar chat teman selama 24 jam.'),
             style: theme.textTheme.bodySmall,
           ),
           const SizedBox(height: 16),
@@ -275,14 +276,14 @@ class _TulisStoryState extends State<_TulisStory> {
               cursorColor: Colors.white,
               // Tanpa isian latar dari tema: di mode terang isiannya putih,
               // sehingga teks putih tidak terlihat.
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 filled: false,
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
-                hintText: 'Lagi ngerjain apa?',
-                hintStyle: TextStyle(color: Colors.white70),
-                counterStyle: TextStyle(color: Colors.white70),
+                hintText: tr('Lagi ngerjain apa?'),
+                hintStyle: const TextStyle(color: Colors.white70),
+                counterStyle: const TextStyle(color: Colors.white70),
               ),
             ),
           ),
@@ -314,7 +315,7 @@ class _TulisStoryState extends State<_TulisStory> {
                 TextButton.icon(
                   onPressed: _menyimpan ? null : () => _jalankan(() => StoryRepository.instance.hapus(widget.me)),
                   icon: const Icon(Icons.delete_outline),
-                  label: const Text('Hapus'),
+                  label: Text(tr('Hapus')),
                 ),
               const Spacer(),
               FilledButton(
@@ -325,7 +326,7 @@ class _TulisStoryState extends State<_TulisStory> {
                         if (teks.isEmpty) return;
                         _jalankan(() => StoryRepository.instance.simpan(widget.me, teks, _warnaIdx));
                       },
-                child: const Text('Bagikan'),
+                child: Text(tr('Bagikan')),
               ),
             ],
           ),
@@ -354,7 +355,9 @@ Future<void> lihatStory(BuildContext context, String me, StoryCatatan story) {
                 contentPadding: EdgeInsets.zero,
                 leading: UserAvatar(uid: story.uid, showOnline: true),
                 title: UserName(uid: story.uid, style: theme.textTheme.titleMedium),
-                subtitle: Text('Hilang dalam ${sisa.inHours > 0 ? '${sisa.inHours} jam' : '${sisa.inMinutes} menit'}'),
+                subtitle: Text(sisa.inHours > 0
+                    ? tr('Hilang dalam {n} jam', {'n': sisa.inHours})
+                    : tr('Hilang dalam {n} menit', {'n': sisa.inMinutes})),
               ),
               Container(
                 padding: const EdgeInsets.all(24),
@@ -376,7 +379,7 @@ Future<void> lihatStory(BuildContext context, String me, StoryCatatan story) {
                       builder: (_) => ChatRoomScreen(
                         chatId: id,
                         me: me,
-                        draft: 'Membalas catatanmu "${story.teks}": ',
+                        draft: tr('Membalas catatanmu "{teks}": ', {'teks': story.teks}),
                       ),
                     ));
                   } catch (e) {
@@ -384,7 +387,7 @@ Future<void> lihatStory(BuildContext context, String me, StoryCatatan story) {
                   }
                 },
                 icon: const Icon(Icons.reply),
-                label: const Text('Balas'),
+                label: Text(tr('Balas')),
               ),
             ],
           ),

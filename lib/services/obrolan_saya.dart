@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
+import '../l10n/bahasa.dart';
+
 /// Pengaturan pribadi saya untuk satu chat: `users/{me}/obrolan/{chatId}`.
 /// Hanya bisa dibaca dan diubah oleh saya sendiri.
 class StatusObrolan {
@@ -92,7 +94,7 @@ class ObrolanSaya extends ChangeNotifier {
 
   Future<void> sematkan(String me, String chatId, bool aktif) async {
     if (aktif && _semua.values.where((s) => s.disematkan != null).length >= maksSemat) {
-      throw StateError('Maksimal $maksSemat chat yang bisa disematkan.');
+      throw StateError(tr('Maksimal {jumlah} chat yang bisa disematkan.', {'jumlah': maksSemat}));
     }
     await _koleksi(me).doc(chatId).set(
       {'disematkan': aktif ? Timestamp.now() : FieldValue.delete()},

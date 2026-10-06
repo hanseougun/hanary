@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../l10n/bahasa.dart';
+
 /// Kegiatan utama pengguna; menentukan label isian tempat dan posisi di profil.
 enum Peran {
   pelajar('Pelajar', 'Sekolah', 'Kelas'),
@@ -11,6 +13,11 @@ enum Peran {
   final String label;
   final String labelTempat;
   final String labelPosisi;
+
+  /// Label-label di atas dalam bahasa yang dipilih, untuk ditampilkan.
+  String get labelTr => tr(label);
+  String get labelTempatTr => tr(labelTempat);
+  String get labelPosisiTr => tr(labelPosisi);
 
   static Peran? dari(String? nama) => Peran.values.where((p) => p.name == nama).firstOrNull;
 }
@@ -62,6 +69,12 @@ class AppUser {
 
   /// Label isian posisi sesuai peran.
   String get labelPosisi => peran?.labelPosisi ?? 'Kelas / jurusan';
+
+  /// [labelTempat] dalam bahasa yang dipilih, untuk ditampilkan.
+  String get labelTempatTr => tr(labelTempat);
+
+  /// [labelPosisi] dalam bahasa yang dipilih, untuk ditampilkan.
+  String get labelPosisiTr => tr(labelPosisi);
   final String bio;
   final String? fotoUrl;
 
@@ -85,8 +98,7 @@ class AppUser {
       online && lastSeen != null && DateTime.now().difference(lastSeen!) < const Duration(minutes: 5);
 
   /// Profil dianggap lengkap jika nama lengkap, sebutan, dan username sudah diisi.
-  bool get isComplete =>
-      namaLengkap.trim().isNotEmpty && sebutan.trim().isNotEmpty && polaUsername.hasMatch(username);
+  bool get isComplete => namaLengkap.trim().isNotEmpty && sebutan.trim().isNotEmpty && polaUsername.hasMatch(username);
 
   factory AppUser.fromMap(String uid, Map<String, dynamic> data) {
     return AppUser(

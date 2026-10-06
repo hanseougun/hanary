@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/bahasa.dart';
 import '../../models/chat_room.dart';
 import '../../services/chat_repository.dart';
 import '../../services/panggilan_service.dart';
@@ -21,9 +22,9 @@ class _RiwayatPanggilanTabState extends State<RiwayatPanggilanTab> {
   Future<void> _hapusSemua() async {
     final ok = await confirmDialog(
       context,
-      title: 'Hapus semua riwayat panggilan?',
-      message: 'Riwayat hanya hilang dari daftarmu.',
-      action: 'Hapus semua',
+      title: tr('Hapus semua riwayat panggilan?'),
+      message: tr('Riwayat hanya hilang dari daftarmu.'),
+      action: tr('Hapus semua'),
     );
     if (!ok) return;
     try {
@@ -51,7 +52,7 @@ class _RiwayatPanggilanTabState extends State<RiwayatPanggilanTab> {
           children: [
             ListTile(
               leading: Icon(Icons.delete_outline_rounded, color: Theme.of(ctx).colorScheme.error),
-              title: const Text('Hapus dari riwayat'),
+              title: Text(tr('Hapus dari riwayat')),
               onTap: () => Navigator.pop(ctx, 'hapus'),
             ),
           ],
@@ -69,7 +70,7 @@ class _RiwayatPanggilanTabState extends State<RiwayatPanggilanTab> {
       if (!mounted) return;
       if (room == null || !room.members.contains(widget.me) || room.status != ChatStatus.aktif) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tidak bisa menelepon chat ini lagi.')),
+          SnackBar(content: Text(tr('Tidak bisa menelepon chat ini lagi.'))),
         );
         return;
       }
@@ -85,7 +86,7 @@ class _RiwayatPanggilanTabState extends State<RiwayatPanggilanTab> {
     return StreamBuilder<List<Panggilan>>(
       stream: _riwayat,
       builder: (context, snap) {
-        if (snap.hasError) return Center(child: Text('Gagal memuat riwayat: ${snap.error}'));
+        if (snap.hasError) return Center(child: Text(tr('Gagal memuat riwayat: {error}', {'error': snap.error})));
         final daftar = snap.data;
         if (daftar == null) return const Center(child: CircularProgressIndicator());
         if (daftar.isEmpty) {
@@ -97,10 +98,10 @@ class _RiwayatPanggilanTabState extends State<RiwayatPanggilanTab> {
                 children: [
                   Icon(Icons.call_outlined, size: 64, color: theme.colorScheme.outline),
                   const SizedBox(height: 12),
-                  Text('Belum ada riwayat panggilan', style: theme.textTheme.titleMedium),
+                  Text(tr('Belum ada riwayat panggilan'), style: theme.textTheme.titleMedium),
                   const SizedBox(height: 4),
-                  const Text(
-                    'Buka chat lalu ketuk ikon telepon atau kamera di kanan atas untuk menelepon.',
+                  Text(
+                    tr('Buka chat lalu ketuk ikon telepon atau kamera di kanan atas untuk menelepon.'),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -118,7 +119,7 @@ class _RiwayatPanggilanTabState extends State<RiwayatPanggilanTab> {
                 child: TextButton.icon(
                   onPressed: _hapusSemua,
                   icon: const Icon(Icons.delete_sweep_outlined),
-                  label: const Text('Hapus semua'),
+                  label: Text(tr('Hapus semua')),
                 ),
               ),
             ),
@@ -143,7 +144,7 @@ class _RiwayatPanggilanTabState extends State<RiwayatPanggilanTab> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                'Geser ke kiri atau tekan lama untuk menghapus satu riwayat.',
+                tr('Geser ke kiri atau tekan lama untuk menghapus satu riwayat.'),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
@@ -170,10 +171,10 @@ JenisRiwayat jenisRiwayat(Panggilan p, String me) {
 /// "Tak terjawab", "Keluar · 3:05", dst.
 String keteranganRiwayat(Panggilan p, String me) {
   final jenis = switch (jenisRiwayat(p, me)) {
-    JenisRiwayat.keluar => p.durasi == null && p.status == StatusPanggilan.selesai ? 'Tidak dijawab' : 'Keluar',
-    JenisRiwayat.masuk => 'Masuk',
-    JenisRiwayat.takTerjawab => 'Tak terjawab',
-    JenisRiwayat.ditolak => 'Ditolak',
+    JenisRiwayat.keluar => p.durasi == null && p.status == StatusPanggilan.selesai ? tr('Tidak dijawab') : tr('Keluar§panggilan'),
+    JenisRiwayat.masuk => tr('Masuk§panggilan'),
+    JenisRiwayat.takTerjawab => tr('Tak terjawab'),
+    JenisRiwayat.ditolak => tr('Ditolak'),
   };
   final d = p.durasi;
   if (d == null) return jenis;
@@ -230,7 +231,7 @@ class _BarisPanggilan extends StatelessWidget {
         ],
       ),
       trailing: IconButton(
-        tooltip: p.video ? 'Panggilan video' : 'Panggilan suara',
+        tooltip: p.video ? tr('Panggilan video') : tr('Panggilan suara'),
         icon: Icon(p.video ? Icons.videocam_outlined : Icons.call_outlined, color: theme.colorScheme.primary),
         onPressed: onTelepon,
       ),
@@ -252,7 +253,7 @@ class _NamaGrup extends StatelessWidget {
       stream: ChatRepository.instance.watchRoom(chatId),
       builder: (context, snap) {
         final room = snap.data;
-        final nama = room != null && room.isGroup ? room.name : 'Panggilan grup';
+        final nama = room != null && room.isGroup ? room.name : tr('Panggilan grup');
         return Text('$nama ($jumlah)', maxLines: 1, overflow: TextOverflow.ellipsis, style: gaya);
       },
     );

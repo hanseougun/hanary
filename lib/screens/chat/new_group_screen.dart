@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/bahasa.dart';
 import '../../services/chat_repository.dart';
 import '../../services/friend_repository.dart';
 import 'chat_room_screen.dart';
@@ -42,7 +43,7 @@ class _NewGroupScreenState extends State<NewGroupScreen> {
     final name = _name.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Isi nama grup dulu.')),
+        SnackBar(content: Text(tr('Isi nama grup dulu.'))),
       );
       return;
     }
@@ -71,7 +72,7 @@ class _NewGroupScreenState extends State<NewGroupScreen> {
     final theme = Theme.of(context);
     final exclude = widget.existingMembers ?? const [];
     return Scaffold(
-      appBar: AppBar(title: Text(_addMode ? 'Tambah anggota' : 'Grup baru')),
+      appBar: AppBar(title: Text(_addMode ? tr('Tambah anggota') : tr('Grup baru'))),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -81,9 +82,9 @@ class _NewGroupScreenState extends State<NewGroupScreen> {
               child: TextField(
                 controller: _name,
                 textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  labelText: 'Nama grup',
-                  hintText: 'mis. Kelompok Biologi',
+                decoration: InputDecoration(
+                  labelText: tr('Nama grup'),
+                  hintText: tr('mis. Kelompok Biologi'),
                 ),
               ),
             ),
@@ -94,14 +95,14 @@ class _NewGroupScreenState extends State<NewGroupScreen> {
                 controller: _deskripsi,
                 maxLength: 300,
                 textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  labelText: 'Deskripsi grup (boleh dikosongkan)',
+                decoration: InputDecoration(
+                  labelText: tr('Deskripsi grup (boleh dikosongkan)'),
                 ),
               ),
             ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: Text('Pilih teman', style: theme.textTheme.titleSmall),
+            child: Text(tr('Pilih teman'), style: theme.textTheme.titleSmall),
           ),
           Expanded(
             child: StreamBuilder<List<String>>(
@@ -110,10 +111,10 @@ class _NewGroupScreenState extends State<NewGroupScreen> {
                 final friends = snap.data?.where((f) => !exclude.contains(f)).toList();
                 if (friends == null) return const Center(child: CircularProgressIndicator());
                 if (friends.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.all(24),
+                  return Padding(
+                    padding: const EdgeInsets.all(24),
                     child: Text(
-                      'Belum ada teman yang bisa dipilih. Tambah teman dulu dari tab Chat.',
+                      tr('Belum ada teman yang bisa dipilih. Tambah teman dulu dari tab Chat.'),
                       textAlign: TextAlign.center,
                     ),
                   );
@@ -145,8 +146,8 @@ class _NewGroupScreenState extends State<NewGroupScreen> {
               child: _saving
                   ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
                   : Text(_addMode
-                      ? 'Tambahkan (${_selected.length})'
-                      : 'Buat grup (${_selected.length + 1} anggota)'),
+                      ? tr('Tambahkan ({jumlah})', {'jumlah': _selected.length})
+                      : tr('Buat grup ({jumlah} anggota)', {'jumlah': _selected.length + 1})),
             ),
           ),
         ],

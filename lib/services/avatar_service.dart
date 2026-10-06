@@ -7,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 
 import 'edit_gambar.dart';
 
+import '../l10n/bahasa.dart';
+
 /// Foto profil dan foto grup yang diunggah sendiri.
 ///
 /// Foto diperkecil (maks. 512 px) lalu disimpan langsung di Firestore:
@@ -43,7 +45,7 @@ class AvatarService {
     final path = await editGambar(context, foto.path, persegi: true, maksSisi: 512);
     if (path == null) return null;
     final bytes = await File(path).readAsBytes();
-    if (bytes.length > 400 * 1024) throw StateError('Foto terlalu besar, coba foto lain.');
+    if (bytes.length > 400 * 1024) throw StateError(tr('Foto terlalu besar, coba foto lain.'));
     return bytes;
   }
 

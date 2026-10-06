@@ -9,6 +9,8 @@ import 'package:path_provider/path_provider.dart';
 import '../models/chat_payload.dart';
 import 'chat_crypto.dart';
 
+import '../l10n/bahasa.dart';
+
 /// Foto dan file di chat.
 ///
 /// File dienkripsi di HP dengan kunci ruang chat, dipotong-potong, lalu
@@ -43,8 +45,7 @@ class ChatFiles {
   static String _aman(String nama) => nama.replaceAll(RegExp(r'[^\w.\- ]'), '_');
 
   /// Salinan file di HP ini.
-  Future<File> fileLokal(BerkasChat b) async =>
-      File('${(await _folder()).path}/${b.fileId}_${_aman(b.nama)}');
+  Future<File> fileLokal(BerkasChat b) async => File('${(await _folder()).path}/${b.fileId}_${_aman(b.nama)}');
 
   /// Mengenkripsi dan mengunggah file. [onProgress] menerima nilai 0..1.
   Future<BerkasChat> unggah({
@@ -85,7 +86,7 @@ class ChatFiles {
         for (var n = 0; n < b.parts; n++) {
           final snap = await _files(chatId).doc('${b.fileId}_$n').get();
           final blob = snap.data()?['data'];
-          if (blob is! Blob) throw StateError('Bagian file tidak ditemukan.');
+          if (blob is! Blob) throw StateError(tr('Bagian file tidak ditemukan.'));
           hasil.add(await ChatCrypto.decryptBytes(blob.bytes, key, '$chatId|${b.fileId}|$n'));
         }
         final tmp = File('${file.path}.part');
@@ -116,7 +117,7 @@ class FileTerlaluBesar implements Exception {
   const FileTerlaluBesar();
 
   @override
-  String toString() => 'File terlalu besar. Maksimal 10 MB per file.';
+  String toString() => tr('File terlalu besar. Maksimal 10 MB per file.');
 }
 
 /// Ukuran file yang mudah dibaca, mis. "1,2 MB".

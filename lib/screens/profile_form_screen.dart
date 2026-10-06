@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/bahasa.dart';
 import '../models/app_user.dart';
 import '../services/auth_service.dart';
 import '../services/user_repository.dart';
@@ -53,27 +54,26 @@ class _ProfileFormScreenState extends State<ProfileFormScreen> {
       if (!widget.isOnboarding) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profil disimpan')),
+          SnackBar(content: Text(tr('Profil disimpan'))),
         );
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e is UsernameDipakai ? e.toString() : 'Gagal menyimpan: $e')),
+        SnackBar(content: Text(e is UsernameDipakai ? e.toString() : tr('Gagal menyimpan: {error}', {'error': e}))),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
-  String? _required(String? v) =>
-      (v == null || v.trim().isEmpty) ? 'Wajib diisi' : null;
+  String? _required(String? v) => (v == null || v.trim().isEmpty) ? tr('Wajib diisi') : null;
 
   String? _cekUsername(String? v) {
     final u = (v ?? '').trim().toLowerCase();
-    if (u.isEmpty) return 'Wajib diisi, dipakai teman untuk mencarimu';
-    if (u.length < 3) return 'Minimal 3 huruf';
-    if (!polaUsername.hasMatch(u)) return 'Hanya huruf kecil, angka, titik (.), dan garis bawah (_)';
+    if (u.isEmpty) return tr('Wajib diisi, dipakai teman untuk mencarimu');
+    if (u.length < 3) return tr('Minimal 3 huruf');
+    if (!polaUsername.hasMatch(u)) return tr('Hanya huruf kecil, angka, titik (.), dan garis bawah (_)');
     return null;
   }
 
@@ -81,12 +81,12 @@ class _ProfileFormScreenState extends State<ProfileFormScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.isOnboarding ? 'Lengkapi profil' : 'Edit profil'),
+        title: Text(tr(widget.isOnboarding ? 'Lengkapi profil' : 'Edit profil')),
         actions: [
           if (widget.isOnboarding)
             TextButton(
               onPressed: AuthService.instance.signOut,
-              child: const Text('Keluar'),
+              child: Text(tr('Keluar')),
             ),
         ],
       ),
@@ -98,14 +98,14 @@ class _ProfileFormScreenState extends State<ProfileFormScreen> {
             children: [
               _Isian(
                 controller: _nama,
-                label: 'Nama lengkap',
+                label: tr('Nama lengkap'),
                 icon: Icons.badge_outlined,
                 kapital: TextCapitalization.words,
                 validator: _required,
               ),
               _Isian(
                 controller: _sebutan,
-                label: 'Nama panggilan',
+                label: tr('Nama panggilan'),
                 icon: Icons.waving_hand_outlined,
                 kapital: TextCapitalization.words,
                 maxLength: 30,
@@ -113,12 +113,12 @@ class _ProfileFormScreenState extends State<ProfileFormScreen> {
               ),
               _Isian(
                 controller: _username,
-                label: 'Username',
+                label: tr('Username'),
                 icon: Icons.alternate_email_rounded,
                 awalan: '@',
                 maxLength: 20,
                 validator: _cekUsername,
-                bantuan: 'Teman mencarimu dengan username ini. Harus unik.',
+                bantuan: tr('Teman mencarimu dengan username ini. Harus unik.'),
                 format: [
                   FilteringTextInputFormatter.allow(RegExp('[a-zA-Z0-9._]')),
                   _HurufKecil(),
@@ -126,7 +126,7 @@ class _ProfileFormScreenState extends State<ProfileFormScreen> {
               ),
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: Text('Kegiatan', style: Theme.of(context).textTheme.titleSmall),
+                child: Text(tr('Kegiatan'), style: Theme.of(context).textTheme.titleSmall),
               ),
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
@@ -136,7 +136,7 @@ class _ProfileFormScreenState extends State<ProfileFormScreen> {
                   children: [
                     for (final p in Peran.values)
                       ChoiceChip(
-                        label: Text(p.label),
+                        label: Text(tr(p.label)),
                         selected: _peran == p,
                         onSelected: (_) => setState(() => _peran = p),
                       ),
@@ -145,19 +145,19 @@ class _ProfileFormScreenState extends State<ProfileFormScreen> {
               ),
               _Isian(
                 controller: _sekolah,
-                label: _peran?.labelTempat ?? 'Sekolah / kampus / perusahaan',
+                label: tr(_peran?.labelTempat ?? 'Sekolah / kampus / perusahaan'),
                 icon: _peran == Peran.pekerja ? Icons.business_outlined : Icons.school_outlined,
                 kapital: TextCapitalization.words,
               ),
               _Isian(
                 controller: _kelas,
-                label: _peran?.labelPosisi ?? 'Kelas / jurusan / jabatan',
+                label: tr(_peran?.labelPosisi ?? 'Kelas / jurusan / jabatan'),
                 icon: _peran == Peran.pekerja ? Icons.work_outline_rounded : Icons.class_outlined,
                 kapital: _peran == Peran.pekerja ? TextCapitalization.words : TextCapitalization.none,
               ),
               _Isian(
                 controller: _bio,
-                label: 'Bio',
+                label: tr('Bio'),
                 icon: Icons.edit_note_rounded,
                 maxLines: 3,
                 maxLength: 150,
@@ -173,7 +173,7 @@ class _ProfileFormScreenState extends State<ProfileFormScreen> {
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Text(widget.isOnboarding ? 'Lanjut' : 'Simpan'),
+                    : Text(tr(widget.isOnboarding ? 'Lanjut' : 'Simpan')),
               ),
             ],
           ),
@@ -221,9 +221,8 @@ class _Isian extends StatelessWidget {
           labelText: label,
           prefixText: awalan,
           helperText: bantuan,
-          prefixIcon: maxLines > 1
-              ? Padding(padding: const EdgeInsets.only(bottom: 44), child: Icon(icon))
-              : Icon(icon),
+          prefixIcon:
+              maxLines > 1 ? Padding(padding: const EdgeInsets.only(bottom: 44), child: Icon(icon)) : Icon(icon),
           alignLabelWithHint: maxLines > 1,
         ),
         textCapitalization: kapital,
@@ -231,9 +230,8 @@ class _Isian extends StatelessWidget {
         maxLines: maxLines,
         maxLength: maxLength,
         // Penghitung huruf hanya untuk bio, agar jarak antar kolom tetap rapi.
-        buildCounter: maxLines > 1
-            ? null
-            : (context, {required currentLength, required isFocused, required maxLength}) => null,
+        buildCounter:
+            maxLines > 1 ? null : (context, {required currentLength, required isFocused, required maxLength}) => null,
         validator: validator,
         inputFormatters: format,
         autocorrect: format == null,

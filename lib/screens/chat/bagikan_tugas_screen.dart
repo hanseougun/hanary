@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../l10n/bahasa.dart';
 import '../../models/chat_payload.dart';
 import '../../models/chat_room.dart';
 import '../../models/tugas.dart';
@@ -51,8 +52,8 @@ class _BagikanTugasScreenState extends State<BagikanTugasScreen> {
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(gagal == 0
-          ? 'Tugas dibagikan ke ${_pilih.length} chat'
-          : 'Gagal membagikan ke $gagal chat. Coba lagi nanti.'),
+          ? tr('Tugas dibagikan ke {n} chat', {'n': _pilih.length})
+          : tr('Gagal membagikan ke {n} chat. Coba lagi nanti.', {'n': gagal})),
     ));
   }
 
@@ -61,7 +62,7 @@ class _BagikanTugasScreenState extends State<BagikanTugasScreen> {
     final theme = Theme.of(context);
     final t = widget.tugas;
     return Scaffold(
-      appBar: AppBar(title: const Text('Bagikan tugas')),
+      appBar: AppBar(title: Text(tr('Bagikan tugas'))),
       body: StreamBuilder<List<ChatRoom>>(
         stream: _rooms,
         builder: (context, roomSnap) => StreamBuilder<List<String>>(
@@ -70,7 +71,10 @@ class _BagikanTugasScreenState extends State<BagikanTugasScreen> {
             final rooms = roomSnap.data?.where((r) => r.canSend(widget.me)).toList();
             final friends = friendSnap.data;
             if (rooms == null || friends == null) return const Center(child: CircularProgressIndicator());
-            final sudahAdaChat = {for (final r in rooms) if (!r.isGroup) r.otherMember(widget.me)};
+            final sudahAdaChat = {
+              for (final r in rooms)
+                if (!r.isGroup) r.otherMember(widget.me)
+            };
             final temanBaru = friends.where((f) => !sudahAdaChat.contains(f)).toList();
             return Column(
               children: [
@@ -82,7 +86,7 @@ class _BagikanTugasScreenState extends State<BagikanTugasScreen> {
                     subtitle: Text(
                       [
                         if (t.mapel.isNotEmpty) t.mapel,
-                        'Deadline ${DateFormat('d MMM y, HH:mm', 'id_ID').format(t.deadline)}',
+                        tr('Deadline {waktu}', {'waktu': DateFormat('d MMM y, HH:mm', kodeTanggal).format(t.deadline)}),
                       ].join(' · '),
                     ),
                   ),
@@ -91,13 +95,13 @@ class _BagikanTugasScreenState extends State<BagikanTugasScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
-                      'Lampiran tidak ikut dibagikan. Kirim filenya lewat tombol + di chat jika perlu.',
+                      tr('Lampiran tidak ikut dibagikan. Kirim filenya lewat tombol + di chat jika perlu.'),
                       style: theme.textTheme.bodySmall,
                     ),
                   ),
                 Expanded(
                   child: rooms.isEmpty && temanBaru.isEmpty
-                      ? const Center(child: Text('Belum ada teman atau grup. Tambah teman dulu di tab Chat.'))
+                      ? Center(child: Text(tr('Belum ada teman atau grup. Tambah teman dulu di tab Chat.')))
                       : ListView(
                           children: [
                             for (final r in rooms)
@@ -106,7 +110,7 @@ class _BagikanTugasScreenState extends State<BagikanTugasScreen> {
                                 onChanged: (v) => setState(() => v == true ? _pilih.add(r.id) : _pilih.remove(r.id)),
                                 secondary: r.isGroup ? GroupAvatar(room: r) : UserAvatar(uid: r.otherMember(widget.me)),
                                 title: r.isGroup ? Text(r.name) : UserName(uid: r.otherMember(widget.me)),
-                                subtitle: r.isGroup ? Text('Grup · ${r.members.length} anggota') : null,
+                                subtitle: r.isGroup ? Text(tr('Grup · {n} anggota', {'n': r.members.length})) : null,
                               ),
                             for (final f in temanBaru)
                               CheckboxListTile(
@@ -128,7 +132,7 @@ class _BagikanTugasScreenState extends State<BagikanTugasScreen> {
                       icon: _mengirim
                           ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.send),
-                      label: Text('Kirim ke ${_pilih.length} chat'),
+                      label: Text(tr('Kirim ke {n} chat', {'n': _pilih.length})),
                     ),
                   ),
                 ),

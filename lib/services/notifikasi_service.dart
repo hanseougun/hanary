@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../l10n/bahasa.dart';
 import '../models/tugas.dart';
 import 'jadwal_pengingat.dart';
 import 'panggilan_service.dart';
@@ -63,6 +64,8 @@ class NotifikasiService {
   Future<void> _antrean = Future.value();
 
   Future<void> init() async {
+    // Notifikasi juga disusun di proses latar, jadi bahasa dibaca di sini.
+    await PengaturanBahasa.instance.muat();
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
     try {
       tzdata.initializeTimeZones();
@@ -127,12 +130,12 @@ class NotifikasiService {
     await _plugin.show(
       id: idNotifikasi('$_prefixPanggilan$callId'),
       title: judul,
-      body: video ? 'Panggilan video masuk' : 'Panggilan suara masuk',
+      body: video ? tr('Panggilan video masuk') : tr('Panggilan suara masuk'),
       notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
           'panggilan_masuk',
-          'Panggilan masuk',
-          channelDescription: 'Panggilan suara dan video dari teman dan grup',
+          tr('Panggilan masuk'),
+          channelDescription: tr('Panggilan suara dan video dari teman dan grup'),
           importance: Importance.max,
           priority: Priority.max,
           category: AndroidNotificationCategory.call,
@@ -143,9 +146,10 @@ class NotifikasiService {
           audioAttributesUsage: AudioAttributesUsage.notificationRingtone,
           additionalFlags: Int32List.fromList([_flagBerulang]),
           timeoutAfter: 45000,
-          actions: const [
-            AndroidNotificationAction(aksiTolak, 'Tolak', titleColor: Color(0xFFDC2626)),
-            AndroidNotificationAction(aksiTerima, 'Terima', titleColor: Color(0xFF16A34A), showsUserInterface: true),
+          actions: [
+            AndroidNotificationAction(aksiTolak, tr('Tolak'), titleColor: const Color(0xFFDC2626)),
+            AndroidNotificationAction(aksiTerima, tr('Terima'),
+                titleColor: const Color(0xFF16A34A), showsUserInterface: true),
           ],
         ),
       ),
@@ -261,8 +265,8 @@ class NotifikasiService {
 
     final tepat = _tepat = await _android?.canScheduleExactNotifications() ?? false;
     final detailBiasa = await detailUntuk(JenisNotif.tugas);
-    final jam = DateFormat('HH:mm', 'id_ID');
-    final tanggal = DateFormat('EEEE, d MMM, HH:mm', 'id_ID');
+    final jam = DateFormat('HH:mm', kodeTanggal);
+    final tanggal = DateFormat('EEEE, d MMM, HH:mm', kodeTanggal);
     for (final p in hitungPengingat(semua, sekarang)) {
       final t = p.tugas.first;
       String judul;
@@ -270,34 +274,36 @@ class NotifikasiService {
       var detail = detailBiasa;
       switch (p.jenis) {
         case JenisPengingat.menjelang:
-          final lagi = p.menitSebelum >= 60 ? '${p.menitSebelum ~/ 60} jam' : '${p.menitSebelum} menit';
-          judul = '$lagi lagi deadline: ${t.judul}';
+          judul = p.menitSebelum >= 60
+              ? tr('{n} jam lagi deadline: {judul}', {'n': p.menitSebelum ~/ 60, 'judul': t.judul})
+              : tr('{n} menit lagi deadline: {judul}', {'n': p.menitSebelum, 'judul': t.judul});
           isi = [
             if (t.mapel.isNotEmpty) t.mapel,
-            'Dikumpulkan jam ${jam.format(t.deadline)}',
-            'Status: ${t.status.label}',
+            tr('Dikumpulkan jam {jam}', {'jam': jam.format(t.deadline)}),
+            tr('Status: {status}', {'status': t.status.labelTr}),
           ].join(' · ');
         case JenisPengingat.terlewat:
-          judul = 'Deadline terlewat: ${t.judul}';
-          isi = 'Tugas ini belum ditandai Selesai. Segera kumpulkan, lalu ubah statusnya ya.';
+          judul = tr('Deadline terlewat: {judul}', {'judul': t.judul});
+          isi = tr('Tugas ini belum ditandai Selesai. Segera kumpulkan, lalu ubah statusnya ya.');
         case JenisPengingat.harian:
-          String baris(Tugas x) => '${x.judul} · sisa ${teksSisa(x.deadline.difference(p.waktu))}';
+          String baris(Tugas x) =>
+              tr('{judul} · sisa {sisa}', {'judul': x.judul, 'sisa': teksSisa(x.deadline.difference(p.waktu))});
           if (p.tugas.length == 1) {
-            judul = 'Jangan lupa: ${t.judul}';
+            judul = tr('Jangan lupa: {judul}', {'judul': t.judul});
             isi = [
               if (t.mapel.isNotEmpty) t.mapel,
-              'Deadline ${tanggal.format(t.deadline)}',
-              'sisa ${teksSisa(t.deadline.difference(p.waktu))}',
+              tr('Deadline {waktu}', {'waktu': tanggal.format(t.deadline)}),
+              tr('sisa {sisa}', {'sisa': teksSisa(t.deadline.difference(p.waktu))}),
             ].join(' · ');
           } else {
             final daftar = p.tugas.map(baris).toList();
-            judul = '${p.tugas.length} tugas belum selesai';
+            judul = tr('{n} tugas belum selesai', {'n': p.tugas.length});
             isi = daftar.join('\n');
             detail = await detailUntuk(
               JenisNotif.tugas,
               gaya: InboxStyleInformation(
                 daftar.take(6).toList(),
-                summaryText: daftar.length > 6 ? '+${daftar.length - 6} tugas lagi' : null,
+                summaryText: daftar.length > 6 ? tr('+{n} tugas lagi', {'n': daftar.length - 6}) : null,
               ),
             );
           }

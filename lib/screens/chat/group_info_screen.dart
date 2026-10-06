@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/bahasa.dart';
 import '../../models/chat_room.dart';
 import '../../services/avatar_service.dart';
 import '../../services/chat_repository.dart';
@@ -47,12 +48,12 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
             children: [
               ListTile(
                 leading: const Icon(Icons.fullscreen_rounded),
-                title: const Text('Lihat foto'),
+                title: Text(tr('Lihat foto')),
                 onTap: () => Navigator.pop(ctx, 'lihat'),
               ),
               ListTile(
                 leading: const Icon(Icons.photo_library_outlined),
-                title: const Text('Ganti foto'),
+                title: Text(tr('Ganti foto')),
                 onTap: () => Navigator.pop(ctx, 'ganti'),
               ),
             ],
@@ -76,7 +77,7 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
     final hasil = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(nama ? 'Nama grup' : 'Deskripsi grup'),
+        title: Text(nama ? tr('Nama grup') : tr('Deskripsi grup')),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -84,11 +85,12 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
           maxLines: nama ? 1 : 5,
           minLines: 1,
           textCapitalization: TextCapitalization.sentences,
-          decoration: InputDecoration(hintText: nama ? 'mis. Kelompok Biologi' : 'mis. Grup diskusi tugas kelompok'),
+          decoration:
+              InputDecoration(hintText: nama ? tr('mis. Kelompok Biologi') : tr('mis. Grup diskusi tugas kelompok')),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, controller.text), child: const Text('Simpan')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Batal'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, controller.text), child: Text(tr('Simpan'))),
         ],
       ),
     );
@@ -126,18 +128,18 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
               const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.person_outline),
-                title: const Text('Lihat profil'),
+                title: Text(tr('Lihat profil')),
                 onTap: () => Navigator.pop(ctx, 'profil'),
               ),
               ListTile(
                 leading: const Icon(Icons.workspace_premium_outlined),
-                title: const Text('Jadikan pemilik grup'),
-                subtitle: const Text('Kamu tidak lagi menjadi pemilik'),
+                title: Text(tr('Jadikan pemilik grup')),
+                subtitle: Text(tr('Kamu tidak lagi menjadi pemilik')),
                 onTap: () => Navigator.pop(ctx, 'pemilik'),
               ),
               ListTile(
                 leading: Icon(Icons.person_remove_outlined, color: merah),
-                title: Text('Keluarkan dari grup', style: TextStyle(color: merah)),
+                title: Text(tr('Keluarkan dari grup'), style: TextStyle(color: merah)),
                 onTap: () => Navigator.pop(ctx, 'keluarkan'),
               ),
             ],
@@ -148,7 +150,7 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
     if (pilihan == null || !mounted) return;
     final repo = ChatRepository.instance;
     final nama = await UserDirectory.instance.get(uid);
-    final sebutan = nama == null ? 'anggota ini' : (nama.sebutan.isNotEmpty ? nama.sebutan : nama.namaLengkap);
+    final sebutan = nama == null ? tr('anggota ini') : (nama.sebutan.isNotEmpty ? nama.sebutan : nama.namaLengkap);
     if (!mounted) return;
     try {
       switch (pilihan) {
@@ -157,17 +159,18 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
         case 'pemilik':
           final ok = await confirmDialog(
             context,
-            title: 'Jadikan $sebutan pemilik grup?',
-            message: 'Setelah ini hanya $sebutan yang bisa mengeluarkan anggota dan memindahkan kepemilikan.',
-            action: 'Jadikan pemilik',
+            title: tr('Jadikan {nama} pemilik grup?', {'nama': sebutan}),
+            message: tr('Setelah ini hanya {nama} yang bisa mengeluarkan anggota dan memindahkan kepemilikan.',
+                {'nama': sebutan}),
+            action: tr('Jadikan pemilik'),
           );
           if (ok) await repo.jadikanPemilik(room, widget.me, uid);
         case 'keluarkan':
           final ok = await confirmDialog(
             context,
-            title: 'Keluarkan $sebutan dari grup?',
-            message: 'Dia tidak bisa lagi membaca atau mengirim pesan di grup ini.',
-            action: 'Keluarkan',
+            title: tr('Keluarkan {nama} dari grup?', {'nama': sebutan}),
+            message: tr('Dia tidak bisa lagi membaca atau mengirim pesan di grup ini.'),
+            action: tr('Keluarkan'),
           );
           if (ok) await repo.keluarkanAnggota(room, widget.me, uid);
       }
@@ -179,11 +182,11 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
   Future<void> _leave(ChatRoom room) async {
     final ok = await confirmDialog(
       context,
-      title: 'Keluar dari grup "${room.name}"?',
+      title: tr('Keluar dari grup "{nama}"?', {'nama': room.name}),
       message: room.isPemilik(widget.me) && room.members.length > 1
-          ? 'Kamu tidak akan menerima pesan baru dari grup ini. Kepemilikan grup pindah ke anggota lain.'
-          : 'Kamu tidak akan menerima pesan baru dari grup ini.',
-      action: 'Keluar',
+          ? tr('Kamu tidak akan menerima pesan baru dari grup ini. Kepemilikan grup pindah ke anggota lain.')
+          : tr('Kamu tidak akan menerima pesan baru dari grup ini.'),
+      action: tr('Keluar dari grup'),
     );
     if (!ok || !mounted) return;
     final navigator = Navigator.of(context);
@@ -206,7 +209,7 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
         }
         final theme = Theme.of(context);
         return Scaffold(
-          appBar: AppBar(title: const Text('Info grup')),
+          appBar: AppBar(title: Text(tr('Info grup'))),
           body: ListView(
             children: [
               const SizedBox(height: 16),
@@ -250,8 +253,8 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
                 margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: ListTile(
                   leading: const Icon(Icons.notes_outlined),
-                  title: const Text('Deskripsi grup'),
-                  subtitle: Text(room.deskripsi.isEmpty ? 'Ketuk untuk menambah deskripsi' : room.deskripsi),
+                  title: Text(tr('Deskripsi grup')),
+                  subtitle: Text(room.deskripsi.isEmpty ? tr('Ketuk untuk menambah deskripsi') : room.deskripsi),
                   trailing: const Icon(Icons.edit_outlined),
                   onTap: () => _ubahTeks(room, nama: false),
                 ),
@@ -259,32 +262,32 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
               const EncryptedNote(),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-                child: Text('${room.members.length} anggota', style: theme.textTheme.titleSmall),
+                child: Text(tr('{jumlah} anggota', {'jumlah': room.members.length}), style: theme.textTheme.titleSmall),
               ),
               ListTile(
                 leading: const CircleAvatar(child: Icon(Icons.person_add_alt_1)),
-                title: const Text('Tambah anggota'),
+                title: Text(tr('Tambah anggota')),
                 onTap: () => _addMembers(room),
               ),
               for (final m in room.members)
                 ListTile(
                   leading: UserAvatar(uid: m, showOnline: true),
-                  title: m == widget.me ? const Text('Kamu') : UserName(uid: m),
-                  trailing: m == room.pemilik ? const Chip(label: Text('Pemilik')) : null,
+                  title: m == widget.me ? Text(tr('Kamu')) : UserName(uid: m),
+                  trailing: m == room.pemilik ? Chip(label: Text(tr('Pemilik'))) : null,
                   onTap: m == widget.me ? null : () => _menuAnggota(room, m),
                 ),
               if (room.isPemilik(widget.me))
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
                   child: Text(
-                    'Kamu pemilik grup ini. Ketuk anggota untuk mengeluarkannya atau menjadikannya pemilik.',
+                    tr('Kamu pemilik grup ini. Ketuk anggota untuk mengeluarkannya atau menjadikannya pemilik.'),
                     style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                   ),
                 ),
               const Divider(),
               ListTile(
                 leading: Icon(Icons.logout, color: theme.colorScheme.error),
-                title: Text('Keluar dari grup', style: TextStyle(color: theme.colorScheme.error)),
+                title: Text(tr('Keluar dari grup'), style: TextStyle(color: theme.colorScheme.error)),
                 onTap: () => _leave(room),
               ),
             ],

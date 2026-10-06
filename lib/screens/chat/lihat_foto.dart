@@ -4,6 +4,8 @@ import '../../models/chat_room.dart';
 import '../../services/avatar_service.dart';
 import 'chat_widgets.dart';
 
+import '../../l10n/bahasa.dart';
+
 /// Membuka foto profil seseorang dalam ukuran besar.
 void lihatFotoUser(BuildContext context, String uid) {
   final user = UserFeed.of(uid).last;
@@ -15,7 +17,8 @@ void lihatFotoUser(BuildContext context, String uid) {
   } else if (user.fotoUrl != null) {
     _buka(context, judul, Future.value(NetworkImage(fotoGoogleBesar(user.fotoUrl!))));
   } else {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$judul belum memasang foto profil.')));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(tr('{nama} belum memasang foto profil.', {'nama': judul}))));
   }
 }
 
@@ -23,7 +26,7 @@ void lihatFotoUser(BuildContext context, String uid) {
 void lihatFotoGrup(BuildContext context, ChatRoom room) {
   final ver = room.fotoVer;
   if (ver == null) {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Grup ini belum punya foto.')));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('Grup ini belum punya foto.'))));
     return;
   }
   _buka(
@@ -70,8 +73,8 @@ class _LihatFoto extends StatelessWidget {
           }
           final img = snap.data;
           if (img == null) {
-            return const Center(
-              child: Text('Foto tidak bisa dimuat.', style: TextStyle(color: Colors.white70)),
+            return Center(
+              child: Text(tr('Foto tidak bisa dimuat.'), style: const TextStyle(color: Colors.white70)),
             );
           }
           return Center(
@@ -82,7 +85,7 @@ class _LihatFoto extends StatelessWidget {
                 fit: BoxFit.contain,
                 width: double.infinity,
                 errorBuilder: (_, __, ___) =>
-                    const Text('Foto tidak bisa dimuat.', style: TextStyle(color: Colors.white70)),
+                    Text(tr('Foto tidak bisa dimuat.'), style: const TextStyle(color: Colors.white70)),
               ),
             ),
           );

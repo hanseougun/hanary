@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/bahasa.dart';
+
 /// Warna merek Hanary, diambil dari logo.
 abstract final class WarnaHanary {
   static const ungu = Color(0xFF8E2ECE);
@@ -22,6 +24,9 @@ enum TemaLatar {
   const TemaLatar(this.nama, this.benih, this.gradasi);
 
   final String nama;
+
+  /// [nama] dalam bahasa yang dipilih, untuk ditampilkan.
+  String get namaTr => tr(nama);
 
   /// Warna dasar untuk seluruh skema warna aplikasi.
   final Color benih;

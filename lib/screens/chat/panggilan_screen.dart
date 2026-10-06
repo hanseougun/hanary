@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
+import '../../l10n/bahasa.dart';
 import '../../models/chat_room.dart';
 import '../../services/chat_repository.dart';
 import '../../services/friend_repository.dart';
@@ -42,7 +43,7 @@ Future<void> mulaiPanggilan(
 }) async {
   final layanan = PanggilanService.instance;
   if (layanan.sedangDibuka != null) {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Masih ada panggilan yang berjalan.')));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('Masih ada panggilan yang berjalan.'))));
     return;
   }
   try {
@@ -221,7 +222,7 @@ class _PanggilanMasukScreenState extends State<PanggilanMasukScreen> {
               ],
               const SizedBox(height: 8),
               Text(
-                p.video ? 'Panggilan video masuk…' : 'Panggilan suara masuk…',
+                p.video ? tr('Panggilan video masuk…') : tr('Panggilan suara masuk…'),
                 style: theme.textTheme.bodyLarge?.copyWith(color: Colors.white70),
               ),
               const Spacer(flex: 2),
@@ -233,13 +234,13 @@ class _PanggilanMasukScreenState extends State<PanggilanMasukScreen> {
                     _TombolBulat(
                       warna: const Color(0xFFDC2626),
                       ikon: Icons.call_end_rounded,
-                      label: 'Tolak',
+                      label: tr('Tolak'),
                       onTap: _tolak,
                     ),
                     _TombolBulat(
                       warna: const Color(0xFF16A34A),
                       ikon: p.video ? Icons.videocam_rounded : Icons.call_rounded,
-                      label: 'Terima',
+                      label: tr('Terima'),
                       onTap: _terima,
                     ),
                   ],
@@ -326,7 +327,10 @@ class _PanggilanScreenState extends State<PanggilanScreen> {
       _rendererLokal.srcObject = _lokal;
       await Helper.setSpeakerphoneOn(_speaker);
     } catch (e) {
-      await _akhiri(pesan: 'Izinkan mikrofon${widget.video ? ' dan kamera' : ''} untuk menelepon.');
+      await _akhiri(
+        pesan:
+            widget.video ? tr('Izinkan mikrofon dan kamera untuk menelepon.') : tr('Izinkan mikrofon untuk menelepon.'),
+      );
       return;
     }
     if (!mounted || _selesai) return;
@@ -334,7 +338,7 @@ class _PanggilanScreenState extends State<PanggilanScreen> {
 
     final awal = await _layanan.ambil(widget.callId);
     if (awal == null || awal.status == StatusPanggilan.selesai) {
-      await _akhiri(pesan: 'Panggilan sudah berakhir.');
+      await _akhiri(pesan: tr('Panggilan sudah berakhir.'));
       return;
     }
     if (!awal.ikut.contains(widget.me)) await _layanan.gabung(widget.callId, widget.me);
@@ -343,7 +347,7 @@ class _PanggilanScreenState extends State<PanggilanScreen> {
         final p = _p;
         if (p != null && p.ikut.length <= 1 && _terhubung.isEmpty) {
           _layanan.tidakDijawab(widget.callId).catchError((Object _) {});
-          _akhiri(pesan: 'Tidak dijawab');
+          _akhiri(pesan: tr('Tidak dijawab'));
         }
       });
     }
@@ -366,13 +370,13 @@ class _PanggilanScreenState extends State<PanggilanScreen> {
 
   Future<void> _perbarui(Panggilan? p) async {
     if (_selesai) return;
-    if (p == null) return _akhiri(pesan: 'Panggilan berakhir');
+    if (p == null) return _akhiri(pesan: tr('Panggilan berakhir'));
     final sebelumnya = _p;
     _p = p;
     if (mounted) setState(() {});
     if (p.status == StatusPanggilan.selesai) {
       final ditolak = !p.ramai && p.tolak.isNotEmpty;
-      return _akhiri(pesan: ditolak ? 'Panggilan ditolak' : 'Panggilan berakhir', sudahSelesai: true);
+      return _akhiri(pesan: ditolak ? tr('Panggilan ditolak') : tr('Panggilan berakhir'), sudahSelesai: true);
     }
     // Peserta baru: sambungkan.
     for (final u in p.ikut) {
@@ -586,10 +590,10 @@ class _PanggilanScreenState extends State<PanggilanScreen> {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: Text('Tambah ke panggilan', style: theme.textTheme.titleMedium),
+                child: Text(tr('Tambah ke panggilan'), style: theme.textTheme.titleMedium),
               ),
               if (panggilLagi.isNotEmpty) ...[
-                const Padding(padding: EdgeInsets.fromLTRB(16, 8, 16, 4), child: Text('Belum mengangkat')),
+                Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 4), child: Text(tr('Belum mengangkat'))),
                 for (final u in panggilLagi)
                   ListTile(
                     leading: UserAvatar(uid: u),
@@ -598,16 +602,16 @@ class _PanggilanScreenState extends State<PanggilanScreen> {
                     onTap: () => Navigator.pop(ctx, u),
                   ),
               ],
-              const Padding(padding: EdgeInsets.fromLTRB(16, 8, 16, 4), child: Text('Teman')),
+              Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 4), child: Text(tr('Teman'))),
               if (penuh)
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 4, 16, 16),
-                  child: Text('Panggilan sudah penuh ($_maksPeserta orang).'),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                  child: Text(tr('Panggilan sudah penuh ({jumlah} orang).', {'jumlah': _maksPeserta})),
                 )
               else if (ajak.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 4, 16, 16),
-                  child: Text('Semua temanmu sudah ada di panggilan ini.'),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                  child: Text(tr('Semua temanmu sudah ada di panggilan ini.')),
                 )
               else
                 for (final u in ajak)
@@ -627,7 +631,7 @@ class _PanggilanScreenState extends State<PanggilanScreen> {
     try {
       await _layanan.undang(terbaru, widget.me, dipilih);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Memanggil…')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('Memanggil…'))));
       }
     } catch (e) {
       if (mounted) showError(context, e);
@@ -644,9 +648,9 @@ class _PanggilanScreenState extends State<PanggilanScreen> {
       final detik = (d.inSeconds % 60).toString().padLeft(2, '0');
       return jam > 0 ? '$jam:$menit:$detik' : '$menit:$detik';
     }
-    if (!_siap || p == null) return 'Menyiapkan…';
-    if (p.ikut.length <= 1) return _pemanggil ? 'Memanggil…' : 'Menunggu…';
-    return 'Menghubungkan…';
+    if (!_siap || p == null) return tr('Menyiapkan…');
+    if (p.ikut.length <= 1) return _pemanggil ? tr('Memanggil…') : tr('Menunggu…');
+    return tr('Menghubungkan…');
   }
 
   @override
@@ -758,7 +762,7 @@ class _PanggilanScreenState extends State<PanggilanScreen> {
                   top: 0,
                   child: SafeArea(
                     child: IconButton(
-                      tooltip: 'Tambah orang',
+                      tooltip: tr('Tambah orang'),
                       color: Colors.white,
                       icon: const Icon(Icons.person_add_alt_1_rounded),
                       onPressed: _tambahOrang,
@@ -802,30 +806,30 @@ class _PanggilanScreenState extends State<PanggilanScreen> {
                         _TombolKecil(
                           ikon: _mic ? Icons.mic_rounded : Icons.mic_off_rounded,
                           aktif: !_mic,
-                          label: _mic ? 'Bisukan' : 'Bisu',
+                          label: _mic ? tr('Bisukan') : tr('Bisu'),
                           onTap: _gantiMic,
                         ),
                         if (widget.video) ...[
                           _TombolKecil(
                             ikon: _kamera ? Icons.videocam_rounded : Icons.videocam_off_rounded,
                             aktif: !_kamera,
-                            label: 'Kamera',
+                            label: tr('Kamera'),
                             onTap: _gantiKamera,
                           ),
-                          _TombolKecil(ikon: Icons.cameraswitch_rounded, label: 'Balik', onTap: _balikKamera),
+                          _TombolKecil(ikon: Icons.cameraswitch_rounded, label: tr('Balik'), onTap: _balikKamera),
                         ],
                         _TombolKecil(
                           ikon: _speaker ? Icons.volume_up_rounded : Icons.volume_down_rounded,
                           aktif: _speaker,
-                          label: 'Speaker',
+                          label: tr('Speaker'),
                           onTap: _gantiSpeaker,
                         ),
                         if (_p != null && !widget.video)
-                          _TombolKecil(ikon: Icons.person_add_alt_1_rounded, label: 'Tambah', onTap: _tambahOrang),
+                          _TombolKecil(ikon: Icons.person_add_alt_1_rounded, label: tr('Tambah'), onTap: _tambahOrang),
                         _TombolBulat(
                           warna: const Color(0xFFDC2626),
                           ikon: Icons.call_end_rounded,
-                          label: 'Akhiri',
+                          label: tr('Akhiri'),
                           onTap: () => _akhiri(),
                         ),
                       ],

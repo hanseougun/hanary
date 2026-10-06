@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../l10n/bahasa.dart';
 import '../../models/app_user.dart';
 import '../../models/chat_room.dart';
 import '../../services/avatar_service.dart';
@@ -161,20 +162,20 @@ class PresenceText extends StatelessWidget {
 
 String? presenceLabel(AppUser? user) {
   if (user == null || !user.tampilOnline) return null;
-  if (user.sedangOnline) return 'Online';
+  if (user.sedangOnline) return tr('Online');
   final t = user.lastSeen;
   if (t == null) return null;
   final now = DateTime.now();
   String two(int n) => n.toString().padLeft(2, '0');
   final jam = '${two(t.hour)}:${two(t.minute)}';
   if (t.year == now.year && t.month == now.month && t.day == now.day) {
-    return 'Terakhir dilihat hari ini $jam';
+    return tr('Terakhir dilihat hari ini {jam}', {'jam': jam});
   }
   final kemarin = now.subtract(const Duration(days: 1));
   if (t.year == kemarin.year && t.month == kemarin.month && t.day == kemarin.day) {
-    return 'Terakhir dilihat kemarin $jam';
+    return tr('Terakhir dilihat kemarin {jam}', {'jam': jam});
   }
-  return 'Terakhir dilihat ${two(t.day)}/${two(t.month)} $jam';
+  return tr('Terakhir dilihat {tanggal} {jam}', {'tanggal': '${two(t.day)}/${two(t.month)}', 'jam': jam});
 }
 
 /// Sebutan orang lain berdasarkan uid.
@@ -211,7 +212,7 @@ class EncryptedNote extends StatelessWidget {
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              'Pesan terenkripsi end-to-end. Hanya anggota chat yang bisa membacanya.',
+              tr('Pesan terenkripsi end-to-end. Hanya anggota chat yang bisa membacanya.'),
               style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
               textAlign: TextAlign.center,
             ),
@@ -244,7 +245,7 @@ Future<bool> confirmDialog(
       title: Text(title),
       content: message != null ? Text(message) : null,
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Batal'))),
         FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(action)),
       ],
     ),
@@ -254,6 +255,6 @@ Future<bool> confirmDialog(
 
 void showError(BuildContext context, Object error) {
   ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text('Terjadi kesalahan: $error')),
+    SnackBar(content: Text(tr('Terjadi kesalahan: {error}', {'error': error}))),
   );
 }

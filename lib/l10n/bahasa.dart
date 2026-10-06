@@ -70,9 +70,14 @@ String get kodeTanggal => PengaturanBahasa.instance.bahasa.kodeTanggal;
 /// Bagian yang berubah ditulis `{nama}` dan diisi lewat [isi]:
 /// `tr('Hapus {nama}?', {'nama': x})`. Jika terjemahan belum ada, teks
 /// Indonesianya yang dipakai.
+///
+/// Kata yang sama dengan arti berbeda diberi penanda konteks setelah `§`,
+/// mis. `tr('Keluar§panggilan')` (panggilan keluar, bukan "keluar akun").
+/// Penanda itu tidak ikut ditampilkan.
 String tr(String teks, [Map<String, Object?> isi = const {}]) {
   final b = PengaturanBahasa.instance.bahasa;
-  var hasil = teks;
+  final penanda = teks.indexOf('§');
+  var hasil = penanda < 0 ? teks : teks.substring(0, penanda);
   if (b != Bahasa.id) {
     final t = terjemahan(teks);
     if (t != null) hasil = t[b.index - 1];

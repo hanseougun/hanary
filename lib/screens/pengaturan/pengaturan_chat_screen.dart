@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/bahasa.dart';
 import '../../models/app_user.dart';
 import '../../services/chat_settings.dart';
 import '../../services/notifikasi_service.dart';
@@ -17,7 +18,7 @@ class PengaturanChatScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Chat & privasi')),
+      appBar: AppBar(title: Text(tr('Chat & privasi'))),
       body: PengaturanChatBagian(uid: uid),
     );
   }
@@ -64,15 +65,16 @@ class _PengaturanChatBagianState extends State<PengaturanChatBagian> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-            child: Text('Notifikasi', style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary)),
+            child:
+                Text(tr('Notifikasi'), style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary)),
           ),
           SwitchListTile(
             secondary: const Icon(Icons.notifications_active_outlined),
-            title: const Text('Notifikasi pesan masuk'),
+            title: Text(tr('Notifikasi pesan masuk')),
             subtitle: Text(
-              PushService.aktif
+              tr(PushService.aktif
                   ? 'Muncul saat ada pesan baru, juga saat aplikasi ditutup.'
-                  : 'Muncul saat ada pesan baru. Jika aplikasi ditutup, pesan dicek sekitar tiap 15 menit.',
+                  : 'Muncul saat ada pesan baru. Jika aplikasi ditutup, pesan dicek sekitar tiap 15 menit.'),
             ),
             value: _notif ?? true,
             onChanged: _notif == null
@@ -85,8 +87,8 @@ class _PengaturanChatBagianState extends State<PengaturanChatBagian> {
           ),
           ListTile(
             leading: const Icon(Icons.music_note_outlined),
-            title: const Text('Suara & durasi notifikasi pesan'),
-            subtitle: const Text('Nada bawaan atau pilih sendiri, getar, lama bunyi'),
+            title: Text(tr('Suara & durasi notifikasi pesan')),
+            subtitle: Text(tr('Nada bawaan atau pilih sendiri, getar, lama bunyi')),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
               builder: (_) => const SuaraNotifScreen(jenis: JenisNotif.chat),
@@ -94,8 +96,8 @@ class _PengaturanChatBagianState extends State<PengaturanChatBagian> {
           ),
           ListTile(
             leading: const Icon(Icons.alarm_outlined),
-            title: const Text('Suara & durasi pengingat tugas'),
-            subtitle: const Text('Untuk pengingat deadline'),
+            title: Text(tr('Suara & durasi pengingat tugas')),
+            subtitle: Text(tr('Untuk pengingat deadline')),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
               builder: (_) => const SuaraNotifScreen(jenis: JenisNotif.tugas),
@@ -103,12 +105,12 @@ class _PengaturanChatBagianState extends State<PengaturanChatBagian> {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-            child: Text('Privasi', style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary)),
+            child: Text(tr('Privasi'), style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary)),
           ),
           SwitchListTile(
             secondary: const Icon(Icons.circle, color: Color(0xFF22C55E), size: 18),
-            title: const Text('Tampilkan status online'),
-            subtitle: const Text('Teman bisa melihat kamu sedang online atau kapan terakhir dilihat.'),
+            title: Text(tr('Tampilkan status online')),
+            subtitle: Text(tr('Teman bisa melihat kamu sedang online atau kapan terakhir dilihat.')),
             value: user?.tampilOnline ?? true,
             onChanged: user == null
                 ? null
@@ -119,23 +121,22 @@ class _PengaturanChatBagianState extends State<PengaturanChatBagian> {
           ),
           SwitchListTile(
             secondary: const Icon(Icons.done_all, color: Color(0xFF0EA5E9)),
-            title: const Text('Tanda sudah dibaca'),
-            subtitle: const Text('Jika dimatikan, pengirim tidak melihat centang biru saat kamu membaca pesannya.'),
+            title: Text(tr('Tanda sudah dibaca')),
+            subtitle: Text(tr('Jika dimatikan, pengirim tidak melihat centang biru saat kamu membaca pesannya.')),
             value: user?.kirimDibaca ?? true,
             onChanged: user == null ? null : (v) => _ubah(() => ChatSettings.setPrivasi(widget.uid, dibaca: v)),
           ),
-          const ListTile(
-            leading: Icon(Icons.mark_chat_unread_outlined),
-            title: Text('Permintaan pesan'),
+          ListTile(
+            leading: const Icon(Icons.mark_chat_unread_outlined),
+            title: Text(tr('Permintaan pesan')),
             subtitle: Text(
-              'Orang yang belum berteman hanya bisa mengirim 1 pesan. Pesannya masuk ke "Permintaan pesan" '
-              'di tab Chat dan baru bisa dibalas setelah kamu menerimanya.',
+              tr('Orang yang belum berteman hanya bisa mengirim 1 pesan. Pesannya masuk ke "Permintaan pesan" di tab Chat dan baru bisa dibalas setelah kamu menerimanya.'),
             ),
           ),
-          const ListTile(
-            leading: Icon(Icons.lock_outline),
-            title: Text('Enkripsi end-to-end'),
-            subtitle: Text('Pesan, foto, dan file di chat dienkripsi di HP. Server hanya menyimpan data acak.'),
+          ListTile(
+            leading: const Icon(Icons.lock_outline),
+            title: Text(tr('Enkripsi end-to-end')),
+            subtitle: Text(tr('Pesan, foto, dan file di chat dienkripsi di HP. Server hanya menyimpan data acak.')),
           ),
         ],
       ),

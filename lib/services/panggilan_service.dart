@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 import '../firebase_options.dart';
+import '../l10n/bahasa.dart';
 import '../models/chat_room.dart';
 import 'notifikasi_service.dart';
 import 'push_service.dart';
@@ -341,13 +342,14 @@ class PanggilanService {
     } catch (_) {}
     if (p == null || !p.bisaDiangkat(uid, dipanggil: dipanggil)) return;
     final pemanggil = await UserDirectory.instance.get(pengajak ?? p.dari);
-    final nama =
-        pemanggil == null ? 'Seseorang' : (pemanggil.sebutan.isNotEmpty ? pemanggil.sebutan : pemanggil.namaLengkap);
+    final nama = pemanggil == null
+        ? tr('Seseorang')
+        : (pemanggil.sebutan.isNotEmpty ? pemanggil.sebutan : pemanggil.namaLengkap);
     var judul = nama;
     if (p.grup) {
       try {
         final chat = await FirebaseFirestore.instance.collection('chats').doc(p.chatId).get();
-        final grup = chat.data()?['name'] as String? ?? 'grup';
+        final grup = chat.data()?['name'] as String? ?? tr('grup');
         judul = '$nama · $grup';
       } catch (_) {
         // Diajak dari luar grup: tidak bisa membaca nama grupnya.

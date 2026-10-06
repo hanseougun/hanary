@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../firebase_options.dart';
+import '../l10n/bahasa.dart';
 import 'chat_notifier.dart';
 import 'notifikasi_service.dart';
 import 'panggilan_service.dart';
@@ -106,6 +107,7 @@ Future<void> pushLatar(RemoteMessage pesan) async {
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
     }
+    await PengaturanBahasa.instance.muat();
     await NotifikasiService.instance.init();
     final user = await FirebaseAuth.instance
         .authStateChanges()

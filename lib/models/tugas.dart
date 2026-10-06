@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../l10n/bahasa.dart';
+
 /// Status pengerjaan tugas.
 enum StatusTugas {
   belum('Belum'),
@@ -7,7 +9,12 @@ enum StatusTugas {
   selesai('Selesai');
 
   const StatusTugas(this.label);
+
+  /// Label dalam Bahasa Indonesia (nilai tetap).
   final String label;
+
+  /// Label dalam bahasa yang dipilih, untuk ditampilkan.
+  String get labelTr => tr(label);
 
   static StatusTugas dari(String? nama) =>
       StatusTugas.values.firstWhere((s) => s.name == nama, orElse: () => StatusTugas.belum);

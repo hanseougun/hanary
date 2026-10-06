@@ -11,6 +11,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
+import '../../l10n/bahasa.dart';
 import '../../models/chat_payload.dart';
 import '../../models/chat_room.dart';
 import '../../models/tugas.dart';
@@ -164,7 +165,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
       if (!await perekam.hasPermission()) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Izinkan mikrofon untuk mengirim pesan suara.')),
+            SnackBar(content: Text(tr('Izinkan mikrofon untuk mengirim pesan suara.'))),
           );
         }
         return;
@@ -213,7 +214,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
       }
       final isi = await file.readAsBytes();
       await file.delete().catchError((Object _) => file);
-      final u = _Unggahan('Pesan suara (${formatDurasi(durasi.inMilliseconds)})', false);
+      final u = _Unggahan(tr('Pesan suara ({durasi})', {'durasi': formatDurasi(durasi.inMilliseconds)}), false);
       setState(() => _unggahan.add(u));
       try {
         final berkas = await ChatFiles.instance.unggah(
@@ -252,10 +253,10 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _PilihanLampiran(icon: Icons.photo_library, label: 'Galeri', warna: Colors.purple, nilai: 'galeri'),
-              _PilihanLampiran(icon: Icons.photo_camera, label: 'Kamera', warna: Colors.pink, nilai: 'kamera'),
-              _PilihanLampiran(icon: Icons.insert_drive_file, label: 'File', warna: Colors.indigo, nilai: 'file'),
-              _PilihanLampiran(icon: Icons.assignment, label: 'Tugas', warna: Colors.teal, nilai: 'tugas'),
+              _PilihanLampiran(icon: Icons.photo_library, label: tr('Galeri'), warna: Colors.purple, nilai: 'galeri'),
+              _PilihanLampiran(icon: Icons.photo_camera, label: tr('Kamera'), warna: Colors.pink, nilai: 'kamera'),
+              _PilihanLampiran(icon: Icons.insert_drive_file, label: tr('File'), warna: Colors.indigo, nilai: 'file'),
+              _PilihanLampiran(icon: Icons.assignment, label: tr('Tugas'), warna: Colors.teal, nilai: 'tugas'),
             ],
           ),
         ),
@@ -353,9 +354,9 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
       case 'hapus':
         final ok = await confirmDialog(
           context,
-          title: 'Hapus obrolan ini?',
-          message: 'Semua pesan di chat ini akan hilang dari HP-mu. Temanmu tetap bisa melihat pesannya.',
-          action: 'Hapus',
+          title: tr('Hapus obrolan ini?'),
+          message: tr('Semua pesan di chat ini akan hilang dari HP-mu. Temanmu tetap bisa melihat pesannya.'),
+          action: tr('Hapus'),
         );
         if (!ok || !mounted) return;
         final nav = Navigator.of(context);
@@ -380,7 +381,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
             appBar: AppBar(),
             body: Center(
               child: roomSnap.hasError || roomSnap.connectionState == ConnectionState.active
-                  ? const Text('Chat tidak tersedia.')
+                  ? Text(tr('Chat tidak tersedia.'))
                   : const CircularProgressIndicator(),
             ),
           );
@@ -415,7 +416,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 250),
                           child: room.isGroup
-                              ? Text('${room.members.length} anggota', style: theme.textTheme.bodySmall)
+                              ? Text(tr('{n} anggota', {'n': room.members.length}), style: theme.textTheme.bodySmall)
                               : PresenceText(uid: other, style: theme.textTheme.bodySmall),
                         ),
                       ],
@@ -427,23 +428,23 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
             actions: [
               if (room.status == ChatStatus.aktif) ...[
                 IconButton(
-                  tooltip: 'Panggilan suara',
+                  tooltip: tr('Panggilan suara'),
                   icon: const Icon(Icons.call_outlined),
                   onPressed: () => mulaiPanggilan(context, room: room, me: widget.me, video: false),
                 ),
                 IconButton(
-                  tooltip: 'Panggilan video',
+                  tooltip: tr('Panggilan video'),
                   icon: const Icon(Icons.videocam_outlined),
                   onPressed: () => mulaiPanggilan(context, room: room, me: widget.me, video: true),
                 ),
               ],
               PopupMenuButton<String>(
-                tooltip: 'Lainnya',
+                tooltip: tr('Lainnya§menu'),
                 onSelected: (v) => _menuAtas(room, v),
                 itemBuilder: (_) => [
-                  if (room.isGroup) const PopupMenuItem(value: 'info', child: Text('Info grup')),
-                  const PopupMenuItem(value: 'bintang', child: Text('Pesan berbintang')),
-                  const PopupMenuItem(value: 'hapus', child: Text('Hapus obrolan')),
+                  if (room.isGroup) PopupMenuItem(value: 'info', child: Text(tr('Info grup'))),
+                  PopupMenuItem(value: 'bintang', child: Text(tr('Pesan berbintang'))),
+                  PopupMenuItem(value: 'hapus', child: Text(tr('Hapus obrolan'))),
                 ],
               ),
             ],
@@ -476,7 +477,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
       builder: (context, snap) => ListenableBuilder(
         listenable: ObrolanSaya.instance,
         builder: (context, _) {
-          if (snap.hasError) return Center(child: Text('Gagal memuat pesan: ${snap.error}'));
+          if (snap.hasError) return Center(child: Text(tr('Gagal memuat pesan: {error}', {'error': snap.error})));
           final semua = snap.data;
           if (semua == null) return const Center(child: CircularProgressIndicator());
           final disembunyikan = PesanDihapus.instance.dari(room.id);
@@ -547,19 +548,19 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     if (room.isIncomingRequest(me)) {
       return _Banner(
         icon: Icons.mark_chat_unread_outlined,
-        teks: 'Kalian belum berteman. Terima permintaan pesan ini agar bisa saling membalas?',
+        teks: tr('Kalian belum berteman. Terima permintaan pesan ini agar bisa saling membalas?'),
         aksi: [
           OutlinedButton(
             onPressed: () => _repo.rejectRequest(room.id).catchError((Object e) {
               if (mounted) showError(context, e);
             }),
-            child: const Text('Tolak'),
+            child: Text(tr('Tolak')),
           ),
           FilledButton(
             onPressed: () => _repo.acceptRequest(room.id).catchError((Object e) {
               if (mounted) showError(context, e);
             }),
-            child: const Text('Terima'),
+            child: Text(tr('Terima')),
           ),
         ],
       );
@@ -569,13 +570,13 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
       return _Banner(
         icon: Icons.block,
         teks: sayaPenolak
-            ? 'Kamu menolak permintaan pesan ini.'
-            : 'Permintaan pesanmu tidak diterima. Kirim permintaan pertemanan agar bisa chat.',
+            ? tr('Kamu menolak permintaan pesan ini.')
+            : tr('Permintaan pesanmu tidak diterima. Kirim permintaan pertemanan agar bisa chat.'),
         aksi: [
           if (sayaPenolak)
             FilledButton.tonal(
               onPressed: () => _repo.acceptRequest(room.id),
-              child: const Text('Terima sekarang'),
+              child: Text(tr('Terima sekarang')),
             ),
         ],
       );
@@ -583,7 +584,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     if (room.isOutgoingRequest(me) && room.requestSent) {
       return _Banner(
         icon: Icons.hourglass_top,
-        teks: 'Permintaan pesan terkirim. Kamu bisa mengirim pesan lagi setelah dia menerimanya.',
+        teks: tr('Permintaan pesan terkirim. Kamu bisa mengirim pesan lagi setelah dia menerimanya.'),
         aksi: const [],
         extra: UserName(uid: other, style: Theme.of(context).textTheme.labelLarge),
       );
@@ -592,10 +593,10 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (room.isOutgoingRequest(me))
-          const _Banner(
+          _Banner(
             icon: Icons.info_outline,
-            teks: 'Kalian belum berteman. Kamu hanya bisa mengirim 1 pesan sampai dia menerima permintaanmu.',
-            aksi: [],
+            teks: tr('Kalian belum berteman. Kamu hanya bisa mengirim 1 pesan sampai dia menerima permintaanmu.'),
+            aksi: const [],
           ),
         _inputBar(room, key),
       ],
@@ -632,7 +633,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                         const SizedBox(width: 8),
                         Expanded(child: KutipanBalasan(balas: balas, me: widget.me)),
                         IconButton(
-                          tooltip: 'Batal membalas',
+                          tooltip: tr('Batal membalas'),
                           icon: const Icon(Icons.close_rounded),
                           onPressed: () => setState(() => _balas = null),
                         ),
@@ -654,7 +655,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         children: [
           if (bolehLampiran)
             IconButton(
-              tooltip: 'Kirim foto, file, atau tugas',
+              tooltip: tr('Kirim foto, file, atau tugas'),
               onPressed: () => _lampirkan(room, key),
               icon: const Icon(Icons.add_circle_outline),
             ),
@@ -666,7 +667,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
               maxLines: 5,
               textCapitalization: TextCapitalization.sentences,
               decoration: InputDecoration(
-                hintText: 'Tulis pesan',
+                hintText: tr('Tulis pesan'),
                 isDense: true,
                 filled: true,
                 fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -684,13 +685,13 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
             builder: (context, nilai, _) {
               if (nilai.text.trim().isEmpty && bolehLampiran) {
                 return IconButton.filled(
-                  tooltip: 'Rekam pesan suara',
+                  tooltip: tr('Rekam pesan suara'),
                   onPressed: _mulaiMerekam,
                   icon: const Icon(Icons.mic),
                 );
               }
               return IconButton.filled(
-                tooltip: 'Kirim',
+                tooltip: tr('Kirim'),
                 onPressed: _sending ? null : () => _send(room, key),
                 icon: const Icon(Icons.send),
               );
@@ -794,10 +795,10 @@ class _PemisahHari extends StatelessWidget {
     final kemarin = now.subtract(const Duration(days: 1));
     bool sama(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
     final label = sama(waktu, now)
-        ? 'Hari ini'
+        ? tr('Hari ini')
         : sama(waktu, kemarin)
-            ? 'Kemarin'
-            : DateFormat('EEEE, d MMMM y', 'id_ID').format(waktu);
+            ? tr('Kemarin')
+            : DateFormat('EEEE, d MMMM y', kodeTanggal).format(waktu);
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -845,7 +846,7 @@ class _BubbleUnggah extends StatelessWidget {
             const SizedBox(height: 8),
             LinearProgressIndicator(value: unggahan.progress == 0 ? null : unggahan.progress),
             const SizedBox(height: 4),
-            Text('Mengirim…', style: theme.textTheme.labelSmall),
+            Text(tr('Mengirim…'), style: theme.textTheme.labelSmall),
           ],
         ),
       ),
@@ -932,39 +933,39 @@ class _BubbleState extends State<_Bubble> {
             if (_bisaDibalas)
               ListTile(
                 leading: const Icon(Icons.reply_rounded),
-                title: const Text('Balas'),
+                title: Text(tr('Balas')),
                 onTap: () => Navigator.pop(ctx, 'balas'),
               ),
             if (isi != null && isi.kind == MessageKind.teks)
               ListTile(
                 leading: const Icon(Icons.copy_rounded),
-                title: const Text('Salin'),
+                title: Text(tr('Salin')),
                 onTap: () => Navigator.pop(ctx, 'salin'),
               ),
             if (bisaDitandai)
               ListTile(
                 leading: Icon(widget.berbintang ? Icons.star_rounded : Icons.star_outline_rounded),
-                title: Text(widget.berbintang ? 'Hapus bintang' : 'Beri bintang'),
+                title: Text(widget.berbintang ? tr('Hapus bintang') : tr('Beri bintang')),
                 onTap: () => Navigator.pop(ctx, 'bintang'),
               ),
             if (bisaSemat)
               ListTile(
                 leading: Icon(disematkan ? Icons.push_pin_outlined : Icons.push_pin),
-                title: Text(disematkan ? 'Lepas sematan' : 'Sematkan pesan'),
-                subtitle: disematkan ? null : const Text('Tampil di atas chat untuk semua anggota'),
+                title: Text(disematkan ? tr('Lepas sematan') : tr('Sematkan pesan')),
+                subtitle: disematkan ? null : Text(tr('Tampil di atas chat untuk semua anggota')),
                 onTap: () => Navigator.pop(ctx, 'semat'),
               ),
             ListTile(
               leading: const Icon(Icons.delete_outline_rounded),
-              title: const Text('Hapus untuk saya'),
-              subtitle: const Text('Hanya hilang dari HP-mu'),
+              title: Text(tr('Hapus untuk saya')),
+              subtitle: Text(tr('Hanya hilang dari HP-mu')),
               onTap: () => Navigator.pop(ctx, 'hapus'),
             ),
             if (bisaTarik)
               ListTile(
                 leading: Icon(Icons.undo_rounded, color: Theme.of(ctx).colorScheme.error),
-                title: Text('Tarik pesan', style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
-                subtitle: const Text('Hilang untuk semua orang di chat ini'),
+                title: Text(tr('Tarik pesan'), style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
+                subtitle: Text(tr('Hilang untuk semua orang di chat ini')),
                 onTap: () => Navigator.pop(ctx, 'tarik'),
               ),
           ],
@@ -978,7 +979,7 @@ class _BubbleState extends State<_Bubble> {
       case 'salin':
         await Clipboard.setData(ClipboardData(text: isi!.teks));
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pesan disalin')));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('Pesan disalin'))));
         }
       case 'bintang':
         try {
@@ -997,9 +998,9 @@ class _BubbleState extends State<_Bubble> {
       case 'tarik':
         final ok = await confirmDialog(
           context,
-          title: 'Tarik pesan ini?',
-          message: 'Pesan akan hilang untuk semua orang di chat ini.',
-          action: 'Tarik',
+          title: tr('Tarik pesan ini?'),
+          message: tr('Pesan akan hilang untuk semua orang di chat ini.'),
+          action: tr('Tarik'),
         );
         if (!ok || !mounted) return;
         try {
@@ -1104,7 +1105,7 @@ class _BubbleState extends State<_Bubble> {
                           Icon(Icons.block, size: 16, color: fg.withValues(alpha: 0.7)),
                           const SizedBox(width: 6),
                           Text(
-                            isMine ? 'Kamu menarik pesan ini' : 'Pesan ini ditarik',
+                            isMine ? tr('Kamu menarik pesan ini') : tr('Pesan ini ditarik'),
                             style: TextStyle(color: fg.withValues(alpha: 0.7), fontStyle: FontStyle.italic),
                           ),
                         ],
@@ -1119,7 +1120,7 @@ class _BubbleState extends State<_Bubble> {
                           final isi = snap.data;
                           if (isi == null) {
                             return Text(
-                              'Pesan tidak bisa dibuka',
+                              tr('Pesan tidak bisa dibuka'),
                               style: TextStyle(color: fg, fontStyle: FontStyle.italic),
                             );
                           }
@@ -1213,7 +1214,7 @@ class _PesanSematState extends State<_PesanSemat> {
       final repo = ChatRepository.instance;
       final m = await repo.ambilPesan(widget.room.id, id);
       if (m == null) return null;
-      if (m.ditarik) return BalasanPesan(id: id, dari: m.senderId, ringkas: 'Pesan ditarik');
+      if (m.ditarik) return BalasanPesan(id: id, dari: m.senderId, ringkas: tr('Pesan ditarik'));
       final isi = await repo.decryptIsi(widget.room.id, m.kind, m.box, widget.roomKey);
       return isi == null ? null : BalasanPesan.dariPesan(id, m.senderId, isi);
     }();
@@ -1230,7 +1231,7 @@ class _PesanSematState extends State<_PesanSemat> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Text('Pesan disematkan', style: Theme.of(ctx).textTheme.titleMedium),
+              child: Text(tr('Pesan disematkan'), style: Theme.of(ctx).textTheme.titleMedium),
             ),
             for (final id in pin)
               FutureBuilder<BalasanPesan?>(
@@ -1241,7 +1242,7 @@ class _PesanSematState extends State<_PesanSemat> {
                     leading: const Icon(Icons.push_pin),
                     title: b == null ? const Text('…') : KutipanBalasan(balas: b, me: widget.me),
                     trailing: IconButton(
-                      tooltip: 'Lepas sematan',
+                      tooltip: tr('Lepas sematan'),
                       icon: const Icon(Icons.close_rounded),
                       onPressed: () {
                         Navigator.pop(ctx);
@@ -1282,7 +1283,7 @@ class _PesanSematState extends State<_PesanSemat> {
                   future: _ringkas(id),
                   builder: (context, snap) {
                     final b = snap.data;
-                    if (b == null) return const Text('Pesan disematkan');
+                    if (b == null) return Text(tr('Pesan disematkan'));
                     return KutipanBalasan(balas: b, me: widget.me);
                   },
                 ),
@@ -1293,7 +1294,7 @@ class _PesanSematState extends State<_PesanSemat> {
                   child: Text('${ke + 1}/${pin.length}', style: theme.textTheme.labelSmall),
                 ),
               IconButton(
-                tooltip: 'Semua pesan disematkan',
+                tooltip: tr('Semua pesan disematkan'),
                 icon: const Icon(Icons.list_rounded),
                 onPressed: _semua,
               ),
@@ -1329,7 +1330,7 @@ class KutipanBalasan extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          balas.dari == me ? Text('Kamu', style: gayaNama) : UserName(uid: balas.dari, style: gayaNama),
+          balas.dari == me ? Text(tr('Kamu'), style: gayaNama) : UserName(uid: balas.dari, style: gayaNama),
           Text(
             balas.ringkas,
             maxLines: 2,
@@ -1367,10 +1368,10 @@ class _GambarChatState extends State<_GambarChat> {
             onTap: () => setState(() {
               _file = ChatFiles.instance.unduh(widget.chatId, widget.berkas, widget.roomKey);
             }),
-            child: const SizedBox(
+            child: SizedBox(
               width: 220,
               height: 160,
-              child: Center(child: Text('Gagal memuat foto.\nKetuk untuk coba lagi.', textAlign: TextAlign.center)),
+              child: Center(child: Text(tr('Gagal memuat foto.\nKetuk untuk coba lagi.'), textAlign: TextAlign.center)),
             ),
           );
         } else if (file == null) {
@@ -1406,7 +1407,7 @@ class _LihatGambar extends StatelessWidget {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            tooltip: 'Buka dengan aplikasi lain',
+            tooltip: tr('Buka dengan aplikasi lain'),
             icon: const Icon(Icons.open_in_new),
             onPressed: () => OpenFilex.open(file.path),
           ),
@@ -1443,7 +1444,7 @@ class _FileChatState extends State<_FileChat> {
       final hasil = await OpenFilex.open(file.path);
       if (hasil.type != ResultType.done && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tidak ada aplikasi untuk membuka file ini.')),
+          SnackBar(content: Text(tr('Tidak ada aplikasi untuk membuka file ini.'))),
         );
       }
     } catch (e) {
@@ -1517,7 +1518,7 @@ class _TugasChatState extends State<_TugasChat> {
       if (!mounted) return;
       setState(() => _tersimpan = true);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tugas disimpan ke daftar tugasmu')),
+        SnackBar(content: Text(tr('Tugas disimpan ke daftar tugasmu'))),
       );
     } catch (e) {
       if (mounted) showError(context, e);
@@ -1547,11 +1548,11 @@ class _TugasChatState extends State<_TugasChat> {
               gradient: GayaHanary.dari(context).gradasiUtama,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.assignment, color: Colors.white, size: 18),
-                SizedBox(width: 6),
-                Text('Tugas dibagikan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                const Icon(Icons.assignment, color: Colors.white, size: 18),
+                const SizedBox(width: 6),
+                Text(tr('Tugas dibagikan'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
               ],
             ),
           ),
@@ -1569,7 +1570,7 @@ class _TugasChatState extends State<_TugasChat> {
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        DateFormat('EEE, d MMM y · HH:mm', 'id_ID').format(t.deadline),
+                        DateFormat('EEE, d MMM y · HH:mm', kodeTanggal).format(t.deadline),
                         style: theme.textTheme.bodySmall?.copyWith(color: lewat ? theme.colorScheme.error : null),
                       ),
                     ),
@@ -1586,7 +1587,7 @@ class _TugasChatState extends State<_TugasChat> {
                     child: FilledButton.tonalIcon(
                       onPressed: _tersimpan || _menyimpan ? null : _simpan,
                       icon: Icon(_tersimpan ? Icons.check : Icons.add_task),
-                      label: Text(_tersimpan ? 'Tersimpan' : 'Simpan ke tugasku'),
+                      label: Text(_tersimpan ? tr('Tersimpan') : tr('Simpan ke tugasku')),
                     ),
                   ),
                 ],
@@ -1614,20 +1615,20 @@ Future<Tugas?> pilihTugas(BuildContext context, String me) {
           final list = snap.data;
           if (list == null) return const Center(child: CircularProgressIndicator());
           if (list.isEmpty) {
-            return const Center(child: Text('Belum ada tugas. Buat tugas dulu di Beranda.'));
+            return Center(child: Text(tr('Belum ada tugas. Buat tugas dulu di Beranda.')));
           }
           return ListView(
             controller: scroll,
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: Text('Pilih tugas yang mau dibagikan'),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Text(tr('Pilih tugas yang mau dibagikan')),
               ),
               for (final t in list)
                 ListTile(
                   leading: const Icon(Icons.assignment_outlined),
                   title: Text(t.judul),
-                  subtitle: Text(DateFormat('EEE, d MMM · HH:mm', 'id_ID').format(t.deadline)),
+                  subtitle: Text(DateFormat('EEE, d MMM · HH:mm', kodeTanggal).format(t.deadline)),
                   onTap: () => Navigator.pop(ctx, t),
                 ),
             ],
@@ -1652,11 +1653,10 @@ class _WaitingForKey extends StatelessWidget {
           children: [
             Icon(Icons.key_outlined, size: 56, color: theme.colorScheme.outline),
             const SizedBox(height: 12),
-            Text('Menunggu kunci enkripsi', style: theme.textTheme.titleMedium),
+            Text(tr('Menunggu kunci enkripsi'), style: theme.textTheme.titleMedium),
             const SizedBox(height: 4),
-            const Text(
-              'HP ini belum punya kunci untuk membuka chat ini. Kunci dikirim otomatis '
-              'saat temanmu membuka aplikasi Hanary. Biarkan halaman ini terbuka atau cek lagi nanti.',
+            Text(
+              tr('HP ini belum punya kunci untuk membuka chat ini. Kunci dikirim otomatis saat temanmu membuka aplikasi Hanary. Biarkan halaman ini terbuka atau cek lagi nanti.'),
               textAlign: TextAlign.center,
             ),
           ],

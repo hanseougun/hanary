@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../l10n/bahasa.dart';
 import '../models/tugas.dart';
 import 'drive_service.dart';
 
@@ -82,15 +83,15 @@ class LampiranService {
   Future<String?> buka(Lampiran l) async {
     final file = await fileDari(l);
     if (!await file.exists()) {
-      if (l.driveId == null) return 'File ini tidak ada di HP ini.';
+      if (l.driveId == null) return tr('File ini tidak ada di HP ini.');
       try {
         await DriveService.instance.unduh(l.driveId!, file);
       } catch (e) {
-        return 'Gagal mengunduh dari Google Drive: $e';
+        return tr('Gagal mengunduh dari Google Drive: {galat}', {'galat': e});
       }
     }
     final hasil = await OpenFilex.open(file.path);
-    return hasil.type == ResultType.done ? null : 'Tidak ada aplikasi untuk membuka file ini.';
+    return hasil.type == ResultType.done ? null : tr('Tidak ada aplikasi untuk membuka file ini.');
   }
 
   /// Menghapus salinan di HP dan, jika [dariDrive], juga file di Google Drive.

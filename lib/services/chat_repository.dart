@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cryptography/cryptography.dart';
 
+import '../l10n/bahasa.dart';
 import '../models/chat_payload.dart';
 import '../models/chat_room.dart';
 import 'chat_crypto.dart';
@@ -160,7 +161,7 @@ class ChatRepository {
 
   Future<void> addMembers(ChatRoom room, String me, List<String> uids) async {
     final key = await roomKey(room, me);
-    if (key == null) throw StateError('Kunci grup belum tersedia di HP ini.');
+    if (key == null) throw StateError(tr('Kunci grup belum tersedia di HP ini.'));
     final wrapped = await _wrapFor(uids, key, room.id);
     await _chats.doc(room.id).update({
       'members': FieldValue.arrayUnion(uids),
@@ -182,7 +183,7 @@ class ChatRepository {
 
   /// Pemilik grup mengeluarkan [uid] dari grup.
   Future<void> keluarkanAnggota(ChatRoom room, String me, String uid) {
-    if (!room.isPemilik(me)) throw StateError('Hanya pemilik grup yang bisa mengeluarkan anggota.');
+    if (!room.isPemilik(me)) throw StateError(tr('Hanya pemilik grup yang bisa mengeluarkan anggota.'));
     return _chats.doc(room.id).update({
       'members': FieldValue.arrayRemove([uid]),
       'keys.$uid': FieldValue.delete(),
@@ -193,7 +194,7 @@ class ChatRepository {
 
   /// Pemilik grup menyerahkan kepemilikan ke anggota lain.
   Future<void> jadikanPemilik(ChatRoom room, String me, String uid) {
-    if (!room.isPemilik(me)) throw StateError('Hanya pemilik grup yang bisa memindahkan kepemilikan.');
+    if (!room.isPemilik(me)) throw StateError(tr('Hanya pemilik grup yang bisa memindahkan kepemilikan.'));
     return _chats.doc(room.id).update({'admin': uid});
   }
 

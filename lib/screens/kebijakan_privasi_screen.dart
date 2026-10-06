@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/bahasa.dart';
 import '../widgets/hanary_widgets.dart';
 
 /// Kebijakan privasi Hanary dalam bahasa yang mudah dipahami.
@@ -64,7 +65,7 @@ class KebijakanPrivasiScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Kebijakan privasi')),
+      appBar: AppBar(title: Text(tr('Kebijakan privasi'))),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
@@ -75,7 +76,7 @@ class KebijakanPrivasiScreen extends StatelessWidget {
                 const SizedBox(width: 14),
                 Expanded(
                   child: Text(
-                    'Privasimu penting. Berikut data yang dipakai Hanary dan cara kami menjaganya.',
+                    tr('Privasimu penting. Berikut data yang dipakai Hanary dan cara kami menjaganya.'),
                     style: theme.textTheme.bodyLarge,
                   ),
                 ),
@@ -106,10 +107,10 @@ class KebijakanPrivasiScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(judul, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                            Text(tr(judul), style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                             const SizedBox(height: 4),
                             Text(
-                              isi,
+                              tr(isi),
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: colors.onSurfaceVariant,
                                 height: 1.45,
@@ -125,7 +126,7 @@ class KebijakanPrivasiScreen extends StatelessWidget {
             ),
           const SizedBox(height: 8),
           Text(
-            'Terakhir diperbarui: 6 Oktober 2026',
+            tr('Terakhir diperbarui: 6 Oktober 2026'),
             textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
           ),
