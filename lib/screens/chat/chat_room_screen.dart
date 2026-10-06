@@ -1,12 +1,15 @@
+import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
 
 import '../../models/chat_payload.dart';
 import '../../models/chat_room.dart';
@@ -15,10 +18,12 @@ import '../../services/chat_files.dart';
 import '../../services/chat_notifier.dart';
 import '../../services/chat_repository.dart';
 import '../../services/notifikasi_service.dart';
+import '../../services/pesan_dihapus.dart';
 import '../../services/tugas_repository.dart';
 import '../../theme/hanary_theme.dart';
 import 'chat_widgets.dart';
 import 'group_info_screen.dart';
+import 'pesan_suara.dart';
 import 'profil_orang_screen.dart';
 
 /// Halaman percakapan (pribadi atau grup).
@@ -55,17 +60,28 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   DateTime? _dibacaSampai;
   String? _statusDibaca;
 
+  // Pesan suara yang sedang direkam.
+  AudioRecorder? _perekam;
+  DateTime? _mulaiRekam;
+  Timer? _detikRekam;
+  static const _maksRekam = Duration(minutes: 5);
+
   @override
   void initState() {
     super.initState();
     ChatNotifier.instance.openChatId = widget.chatId;
     NotifikasiService.instance.hapusChat(widget.chatId);
+    PesanDihapus.instance.muat(widget.chatId).then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
     if (ChatNotifier.instance.openChatId == widget.chatId) ChatNotifier.instance.openChatId = null;
     _input.dispose();
+    _detikRekam?.cancel();
+    _perekam?.cancel().whenComplete(() => _perekam?.dispose());
     super.dispose();
   }
 
@@ -107,6 +123,88 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     }
   }
 
+  Future<void> _mulaiMerekam() async {
+    final perekam = _perekam ??= AudioRecorder();
+    try {
+      if (!await perekam.hasPermission()) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Izinkan mikrofon untuk mengirim pesan suara.')),
+          );
+        }
+        return;
+      }
+      final dir = await getTemporaryDirectory();
+      await perekam.start(
+        const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 32000, sampleRate: 22050, numChannels: 1),
+        path: '${dir.path}/rekaman_${DateTime.now().millisecondsSinceEpoch}.m4a',
+      );
+      HapticFeedback.mediumImpact();
+      setState(() => _mulaiRekam = DateTime.now());
+      _detikRekam = Timer.periodic(const Duration(milliseconds: 250), (_) {
+        if (!mounted) return;
+        setState(() {});
+        if (DateTime.now().difference(_mulaiRekam!) >= _maksRekam) _kirimRekaman();
+      });
+    } catch (e) {
+      if (mounted) showError(context, e);
+    }
+  }
+
+  void _batalRekam() {
+    _detikRekam?.cancel();
+    _perekam?.cancel();
+    setState(() => _mulaiRekam = null);
+  }
+
+  ChatRoom? _roomTerakhir;
+  SecretKey? _kunciTerakhir;
+
+  Future<void> _kirimRekaman() async {
+    final mulai = _mulaiRekam;
+    final room = _roomTerakhir;
+    final key = _kunciTerakhir;
+    if (mulai == null || room == null || key == null) return;
+    _detikRekam?.cancel();
+    setState(() => _mulaiRekam = null);
+    final durasi = DateTime.now().difference(mulai);
+    try {
+      final path = await _perekam?.stop();
+      if (path == null) return;
+      final file = File(path);
+      if (durasi < const Duration(seconds: 1)) {
+        await file.delete().catchError((Object _) => file);
+        return;
+      }
+      final isi = await file.readAsBytes();
+      await file.delete().catchError((Object _) => file);
+      final u = _Unggahan('Pesan suara (${formatDurasi(durasi.inMilliseconds)})', false);
+      setState(() => _unggahan.add(u));
+      try {
+        final berkas = await ChatFiles.instance.unggah(
+          chatId: room.id,
+          me: widget.me,
+          key: key,
+          nama: 'pesan-suara.m4a',
+          isi: isi,
+          onProgress: (p) {
+            if (mounted) setState(() => u.progress = p);
+          },
+        );
+        await _repo.sendIsi(
+          room,
+          widget.me,
+          key,
+          IsiPesan.berkas(MessageKind.suara, berkas.denganDurasi(durasi.inMilliseconds)),
+        );
+      } finally {
+        if (mounted) setState(() => _unggahan.remove(u));
+      }
+    } catch (e) {
+      if (mounted) showError(context, e);
+    }
+  }
+
   Future<void> _lampirkan(ChatRoom room, SecretKey key) async {
     final pilihan = await showModalBottomSheet<String>(
       context: context,
@@ -145,8 +243,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
             final ukuran = await f.length();
             if (ukuran != null && ukuran > ChatFiles.maxUkuran) throw const FileTerlaluBesar();
             final bytes = await f.xFile.readAsBytes();
-            final isGambar = const ['.jpg', '.jpeg', '.png', '.gif', '.webp']
-                .any(f.name.toLowerCase().endsWith);
+            final isGambar = const ['.jpg', '.jpeg', '.png', '.gif', '.webp'].any(f.name.toLowerCase().endsWith);
             await _kirimBerkas(room, key, f.name, bytes, isGambar: isGambar);
           }
         case 'tugas':
@@ -237,7 +334,9 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        room.isGroup ? Text(room.name, maxLines: 1, overflow: TextOverflow.ellipsis) : UserName(uid: other),
+                        room.isGroup
+                            ? Text(room.name, maxLines: 1, overflow: TextOverflow.ellipsis)
+                            : UserName(uid: other),
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 250),
                           child: room.isGroup
@@ -287,8 +386,10 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
       stream: _messages,
       builder: (context, snap) {
         if (snap.hasError) return Center(child: Text('Gagal memuat pesan: ${snap.error}'));
-        final messages = snap.data;
-        if (messages == null) return const Center(child: CircularProgressIndicator());
+        final semua = snap.data;
+        if (semua == null) return const Center(child: CircularProgressIndicator());
+        final disembunyikan = PesanDihapus.instance.dari(room.id);
+        final messages = semua.where((m) => !disembunyikan.contains(m.id)).toList();
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _tandaiDibaca(room, messages);
         });
@@ -306,6 +407,10 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
             final hariBaru = older == null || !_hariSama(older.createdAt, m.createdAt);
             final bubble = _Bubble(
               key: ValueKey(m.id),
+              onHapusUntukSaya: () async {
+                await PesanDihapus.instance.sembunyikan(room.id, m.id);
+                if (mounted) setState(() {});
+              },
               room: room,
               message: m,
               roomKey: key,
@@ -402,7 +507,17 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   }
 
   Widget _inputBar(ChatRoom room, SecretKey key) {
+    _roomTerakhir = room;
+    _kunciTerakhir = key;
     final bolehLampiran = room.status == ChatStatus.aktif || room.canSend(widget.me);
+    final mulai = _mulaiRekam;
+    if (mulai != null) {
+      return BilahRekam(
+        durasi: DateTime.now().difference(mulai),
+        onBatal: _batalRekam,
+        onKirim: _kirimRekaman,
+      );
+    }
     return SafeArea(
       top: false,
       child: Padding(
@@ -435,10 +550,23 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
               ),
             ),
             const SizedBox(width: 4),
-            IconButton.filled(
-              tooltip: 'Kirim',
-              onPressed: _sending ? null : () => _send(room, key),
-              icon: const Icon(Icons.send),
+            // Kolom kosong: tombol mikrofon untuk pesan suara.
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _input,
+              builder: (context, nilai, _) {
+                if (nilai.text.trim().isEmpty && bolehLampiran) {
+                  return IconButton.filled(
+                    tooltip: 'Rekam pesan suara',
+                    onPressed: _mulaiMerekam,
+                    icon: const Icon(Icons.mic),
+                  );
+                }
+                return IconButton.filled(
+                  tooltip: 'Kirim',
+                  onPressed: _sending ? null : () => _send(room, key),
+                  icon: const Icon(Icons.send),
+                );
+              },
             ),
           ],
         ),
@@ -605,7 +733,9 @@ class _Bubble extends StatefulWidget {
     required this.isMine,
     required this.showSender,
     required this.dibaca,
+    required this.onHapusUntukSaya,
   });
+  final Future<void> Function() onHapusUntukSaya;
   final ChatRoom room;
   final ChatMessage message;
   final SecretKey roomKey;
@@ -620,14 +750,84 @@ class _Bubble extends StatefulWidget {
 
 class _BubbleState extends State<_Bubble> {
   late Future<IsiPesan?> _isi = _buka();
+  IsiPesan? _terbuka;
 
-  Future<IsiPesan?> _buka() => ChatRepository.instance
-      .decryptIsi(widget.room.id, widget.message.kind, widget.message.box, widget.roomKey);
+  Future<IsiPesan?> _buka() async {
+    if (widget.message.ditarik) return null;
+    final isi = await ChatRepository.instance
+        .decryptIsi(widget.room.id, widget.message.kind, widget.message.box, widget.roomKey);
+    _terbuka = isi;
+    return isi;
+  }
+
+  /// Tekan lama pesan: salin, hapus untuk saya, atau tarik.
+  Future<void> _menu() async {
+    final m = widget.message;
+    final isi = _terbuka;
+    final bisaTarik = widget.isMine && !m.pending && !m.ditarik;
+    final pilihan = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isi != null && isi.kind == MessageKind.teks)
+              ListTile(
+                leading: const Icon(Icons.copy_rounded),
+                title: const Text('Salin'),
+                onTap: () => Navigator.pop(ctx, 'salin'),
+              ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline_rounded),
+              title: const Text('Hapus untuk saya'),
+              subtitle: const Text('Hanya hilang dari HP-mu'),
+              onTap: () => Navigator.pop(ctx, 'hapus'),
+            ),
+            if (bisaTarik)
+              ListTile(
+                leading: Icon(Icons.undo_rounded, color: Theme.of(ctx).colorScheme.error),
+                title: Text('Tarik pesan', style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
+                subtitle: const Text('Hilang untuk semua orang di chat ini'),
+                onTap: () => Navigator.pop(ctx, 'tarik'),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || pilihan == null) return;
+    switch (pilihan) {
+      case 'salin':
+        await Clipboard.setData(ClipboardData(text: isi!.teks));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pesan disalin')));
+        }
+      case 'hapus':
+        await widget.onHapusUntukSaya();
+      case 'tarik':
+        final ok = await confirmDialog(
+          context,
+          title: 'Tarik pesan ini?',
+          message: 'Pesan akan hilang untuk semua orang di chat ini.',
+          action: 'Tarik',
+        );
+        if (!ok || !mounted) return;
+        try {
+          await ChatRepository.instance.tarik(widget.room, m, berkas: isi?.berkas);
+        } catch (e) {
+          if (mounted) showError(context, e);
+        }
+    }
+  }
 
   @override
   void didUpdateWidget(covariant _Bubble old) {
     super.didUpdateWidget(old);
-    if (old.message.box != widget.message.box || old.roomKey != widget.roomKey) _isi = _buka();
+    if (old.message.box != widget.message.box ||
+        old.message.ditarik != widget.message.ditarik ||
+        old.roomKey != widget.roomKey) {
+      _isi = _buka();
+    }
   }
 
   @override
@@ -655,63 +855,79 @@ class _BubbleState extends State<_Bubble> {
         alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.78),
-          child: Container(
-            margin: const EdgeInsets.symmetric(vertical: 3),
-            padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
-            decoration: BoxDecoration(color: bg, borderRadius: radius),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (widget.showSender)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 2),
-                    child: GestureDetector(
-                      onTap: () => bukaProfil(context, m.senderId),
-                      child: UserName(
-                        uid: m.senderId,
-                        style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.primary),
+          child: GestureDetector(
+            onLongPress: _menu,
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 3),
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
+              decoration: BoxDecoration(color: bg, borderRadius: radius),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (widget.showSender)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: GestureDetector(
+                        onTap: () => bukaProfil(context, m.senderId),
+                        child: UserName(
+                          uid: m.senderId,
+                          style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.primary),
+                        ),
                       ),
                     ),
-                  ),
-                FutureBuilder<IsiPesan?>(
-                  future: _isi,
-                  builder: (context, snap) {
-                    if (snap.connectionState != ConnectionState.done) {
-                      return Text('…', style: TextStyle(color: fg));
-                    }
-                    final isi = snap.data;
-                    if (isi == null) {
-                      return Text(
-                        'Pesan tidak bisa dibuka',
-                        style: TextStyle(color: fg, fontStyle: FontStyle.italic),
-                      );
-                    }
-                    return _isiPesan(context, isi, fg);
-                  },
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      formatChatTime(m.createdAt ?? DateTime.now()),
-                      style: theme.textTheme.labelSmall?.copyWith(color: fg.withValues(alpha: 0.7)),
+                  if (m.ditarik)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.block, size: 16, color: fg.withValues(alpha: 0.7)),
+                        const SizedBox(width: 6),
+                        Text(
+                          isMine ? 'Kamu menarik pesan ini' : 'Pesan ini ditarik',
+                          style: TextStyle(color: fg.withValues(alpha: 0.7), fontStyle: FontStyle.italic),
+                        ),
+                      ],
+                    )
+                  else
+                    FutureBuilder<IsiPesan?>(
+                      future: _isi,
+                      builder: (context, snap) {
+                        if (snap.connectionState != ConnectionState.done) {
+                          return Text('…', style: TextStyle(color: fg));
+                        }
+                        final isi = snap.data;
+                        if (isi == null) {
+                          return Text(
+                            'Pesan tidak bisa dibuka',
+                            style: TextStyle(color: fg, fontStyle: FontStyle.italic),
+                          );
+                        }
+                        return _isiPesan(context, isi, fg);
+                      },
                     ),
-                    if (isMine) ...[
-                      const SizedBox(width: 4),
-                      Icon(
-                        m.pending
-                            ? Icons.schedule
-                            : widget.dibaca
-                                ? Icons.done_all
-                                : Icons.check,
-                        size: 15,
-                        color: widget.dibaca ? const Color(0xFF0EA5E9) : fg.withValues(alpha: 0.7),
+                  const SizedBox(height: 2),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        formatChatTime(m.createdAt ?? DateTime.now()),
+                        style: theme.textTheme.labelSmall?.copyWith(color: fg.withValues(alpha: 0.7)),
                       ),
+                      if (isMine && !m.ditarik) ...[
+                        const SizedBox(width: 4),
+                        Icon(
+                          m.pending
+                              ? Icons.schedule
+                              : widget.dibaca
+                                  ? Icons.done_all
+                                  : Icons.check,
+                          size: 15,
+                          color: widget.dibaca ? const Color(0xFF0EA5E9) : fg.withValues(alpha: 0.7),
+                        ),
+                      ],
                     ],
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -739,6 +955,8 @@ class _BubbleState extends State<_Bubble> {
         return _FileChat(chatId: widget.room.id, berkas: isi.berkas!, roomKey: widget.roomKey, fg: fg);
       case MessageKind.tugas:
         return _TugasChat(tugas: isi.tugas!, me: widget.me, isMine: widget.isMine);
+      case MessageKind.suara:
+        return SuaraChat(chatId: widget.room.id, berkas: isi.berkas!, roomKey: widget.roomKey, fg: fg);
     }
   }
 }

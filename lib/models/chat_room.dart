@@ -133,7 +133,8 @@ enum MessageKind {
   teks,
   gambar,
   file,
-  tugas;
+  tugas,
+  suara;
 
   static MessageKind dari(String? nama) =>
       MessageKind.values.firstWhere((k) => k.name == nama, orElse: () => MessageKind.teks);
@@ -149,6 +150,7 @@ class ChatMessage {
     this.kind = MessageKind.teks,
     this.createdAt,
     this.pending = false,
+    this.ditarik = false,
   });
 
   final String id;
@@ -160,6 +162,9 @@ class ChatMessage {
   /// Belum sampai ke server (mis. sedang offline).
   final bool pending;
 
+  /// Ditarik pengirimnya: isi pesan sudah dikosongkan untuk semua orang.
+  final bool ditarik;
+
   factory ChatMessage.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> snap) {
     final d = snap.data() ?? const {};
     return ChatMessage(
@@ -169,6 +174,7 @@ class ChatMessage {
       kind: MessageKind.dari(d['kind'] as String?),
       createdAt: (d['createdAt'] as Timestamp?)?.toDate(),
       pending: snap.metadata.hasPendingWrites,
+      ditarik: d['ditarik'] == true,
     );
   }
 }

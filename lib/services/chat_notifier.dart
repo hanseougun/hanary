@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
 import '../firebase_options.dart';
+import '../models/chat_payload.dart';
 import '../models/chat_room.dart';
 import 'chat_repository.dart';
 import 'chat_settings.dart';
@@ -125,7 +126,9 @@ class ChatNotifier {
     try {
       final key = await ChatRepository.instance.roomKey(room, uid).timeout(const Duration(seconds: 10));
       final box = room.lastBox;
-      if (key != null && box != null) {
+      if (room.lastKind == lastKindDitarik) {
+        isi = 'Pesan ditarik';
+      } else if (key != null && box != null) {
         final pesan = await ChatRepository.instance
             .decryptIsi(room.id, MessageKind.dari(room.lastKind), box, key);
         if (pesan != null) isi = pesan.ringkas();

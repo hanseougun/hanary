@@ -122,7 +122,13 @@ service cloud.firestore {
           canSend(get(/databases/$(database)/documents/chats/$(chatId)).data) &&
           (get(/databases/$(database)/documents/chats/$(chatId)).data.get('status', 'aktif') == 'aktif' ||
            getAfter(/databases/$(database)/documents/chats/$(chatId)).data.get('requestSent', false) == true);
-        allow update, delete: if false;
+        // Tarik pesan: hanya pengirimnya, dan isinya harus dikosongkan.
+        allow update: if isChatMember(chatId) &&
+          resource.data.senderId == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['box', 'ditarik']) &&
+          request.resource.data.box == '' &&
+          request.resource.data.ditarik == true;
+        allow delete: if false;
       }
 
       // Potongan foto/file terenkripsi (maks. ~700 KB per potongan).
@@ -132,7 +138,9 @@ service cloud.firestore {
           request.resource.data.by == request.auth.uid &&
           request.resource.data.data.size() < 800000 &&
           canSend(get(/databases/$(database)/documents/chats/$(chatId)).data);
-        allow update, delete: if false;
+        // Pengirim boleh menghapus potongan filenya sendiri (saat pesan ditarik).
+        allow delete: if isChatMember(chatId) && resource.data.by == request.auth.uid;
+        allow update: if false;
       }
     }
 

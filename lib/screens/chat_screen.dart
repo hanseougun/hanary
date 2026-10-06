@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/app_user.dart';
+import '../models/chat_payload.dart';
 import '../models/chat_room.dart';
 import '../services/chat_keys.dart';
 import '../services/chat_repository.dart';
@@ -269,6 +270,9 @@ class _RoomTileState extends State<_RoomTile> {
     final key = await repo.roomKey(room, widget.me);
     final box = room.lastBox;
     if (box == null) return room.isOutgoingRequest(widget.me) ? 'Menunggu diterima' : 'Belum ada pesan';
+    if (room.lastKind == lastKindDitarik) {
+      return room.lastSender == widget.me ? 'Kamu menarik pesan' : 'Pesan ditarik';
+    }
     if (key == null) return 'Pesan terenkripsi';
     final isi = await repo.decryptIsi(room.id, MessageKind.dari(room.lastKind), box, key);
     final text = isi?.ringkas() ?? 'Pesan terenkripsi';

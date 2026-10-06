@@ -11,6 +11,7 @@ class BerkasChat {
     required this.nama,
     required this.ukuran,
     required this.parts,
+    this.durasiMs = 0,
   });
 
   final String fileId;
@@ -18,14 +19,27 @@ class BerkasChat {
   final int ukuran;
   final int parts;
 
+  /// Lama rekaman untuk pesan suara.
+  final int durasiMs;
+
   factory BerkasChat.fromJson(Map<String, dynamic> j) => BerkasChat(
         fileId: j['fileId'] as String? ?? '',
         nama: j['nama'] as String? ?? 'file',
         ukuran: (j['ukuran'] as num?)?.toInt() ?? 0,
         parts: (j['parts'] as num?)?.toInt() ?? 0,
+        durasiMs: (j['durasiMs'] as num?)?.toInt() ?? 0,
       );
 
-  Map<String, dynamic> toJson() => {'fileId': fileId, 'nama': nama, 'ukuran': ukuran, 'parts': parts};
+  BerkasChat denganDurasi(int ms) =>
+      BerkasChat(fileId: fileId, nama: nama, ukuran: ukuran, parts: parts, durasiMs: ms);
+
+  Map<String, dynamic> toJson() => {
+        'fileId': fileId,
+        'nama': nama,
+        'ukuran': ukuran,
+        'parts': parts,
+        if (durasiMs > 0) 'durasiMs': durasiMs,
+      };
 }
 
 /// Tugas yang dibagikan ke teman atau grup (tanpa lampiran).
@@ -85,7 +99,7 @@ class IsiPesan {
   /// Teks yang dienkripsi ke dalam `box`.
   String encode() => switch (kind) {
         MessageKind.teks => teks,
-        MessageKind.gambar || MessageKind.file => jsonEncode({...berkas!.toJson(), 'teks': teks}),
+        MessageKind.gambar || MessageKind.file || MessageKind.suara => jsonEncode({...berkas!.toJson(), 'teks': teks}),
         MessageKind.tugas => jsonEncode(tugas!.toJson()),
       };
 
@@ -108,5 +122,15 @@ class IsiPesan {
         MessageKind.gambar => teks.isEmpty ? '📷 Foto' : '📷 $teks',
         MessageKind.file => '📎 ${berkas!.nama}',
         MessageKind.tugas => '📋 Tugas: ${tugas!.judul}',
+        MessageKind.suara => '🎤 Pesan suara (${formatDurasi(berkas!.durasiMs)})',
       };
 }
+
+/// "0:07", "1:23".
+String formatDurasi(int ms) {
+  final detik = (ms / 1000).round();
+  return '${detik ~/ 60}:${(detik % 60).toString().padLeft(2, '0')}';
+}
+
+/// Penanda `lastKind` ruang chat saat pesan terakhir ditarik.
+const lastKindDitarik = 'ditarik';
