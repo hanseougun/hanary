@@ -16,6 +16,7 @@ import '../../services/chat_notifier.dart';
 import '../../services/chat_repository.dart';
 import '../../services/notifikasi_service.dart';
 import '../../services/tugas_repository.dart';
+import '../../theme/hanary_theme.dart';
 import 'chat_widgets.dart';
 import 'group_info_screen.dart';
 
@@ -940,7 +941,7 @@ class _TugasChatState extends State<_TugasChat> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF7C3AED), Color(0xFFF97362)]),
+              gradient: GayaHanary.dari(context).gradasiUtama,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
             ),
             child: const Row(

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Warna merek Hanary (diambil dari logo). -->
+    <color name="hanary_ungu">#8E2ECE</color>
+    <!-- Latar layar pembuka, sama dengan latar animasi pembuka di aplikasi. -->
+    <color name="hanary_latar_pembuka">#140B2E</color>
+</resources>
