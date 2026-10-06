@@ -30,8 +30,7 @@ class BerkasChat {
         durasiMs: (j['durasiMs'] as num?)?.toInt() ?? 0,
       );
 
-  BerkasChat denganDurasi(int ms) =>
-      BerkasChat(fileId: fileId, nama: nama, ukuran: ukuran, parts: parts, durasiMs: ms);
+  BerkasChat denganDurasi(int ms) => BerkasChat(fileId: fileId, nama: nama, ukuran: ukuran, parts: parts, durasiMs: ms);
 
   Map<String, dynamic> toJson() => {
         'fileId': fileId,
@@ -124,6 +123,48 @@ class IsiPesan {
         MessageKind.tugas => '📋 Tugas: ${tugas!.judul}',
         MessageKind.suara => '🎤 Pesan suara (${formatDurasi(berkas!.durasiMs)})',
       };
+}
+
+/// Kutipan pesan yang dibalas. Disimpan terenkripsi di field `balas`
+/// pada pesan balasan, jadi server tidak bisa membacanya.
+class BalasanPesan {
+  const BalasanPesan({required this.id, required this.dari, required this.ringkas, this.kind = MessageKind.teks});
+
+  /// Id pesan yang dibalas.
+  final String id;
+
+  /// Uid pengirim pesan yang dibalas.
+  final String dari;
+
+  /// Ringkasan isi pesan yang dibalas (maks. 120 huruf).
+  final String ringkas;
+  final MessageKind kind;
+
+  factory BalasanPesan.dariPesan(String id, String dari, IsiPesan isi) {
+    final teks = isi.ringkas().replaceAll('\n', ' ');
+    return BalasanPesan(
+      id: id,
+      dari: dari,
+      ringkas: teks.length > 120 ? '${teks.substring(0, 119)}…' : teks,
+      kind: isi.kind,
+    );
+  }
+
+  String encode() => jsonEncode({'id': id, 'dari': dari, 'ringkas': ringkas, 'kind': kind.name});
+
+  static BalasanPesan? parse(String plain) {
+    try {
+      final j = Map<String, dynamic>.from(jsonDecode(plain) as Map);
+      return BalasanPesan(
+        id: j['id'] as String? ?? '',
+        dari: j['dari'] as String? ?? '',
+        ringkas: j['ringkas'] as String? ?? '',
+        kind: MessageKind.dari(j['kind'] as String?),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
 /// "0:07", "1:23".

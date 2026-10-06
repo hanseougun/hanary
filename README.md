@@ -128,3 +128,32 @@ satu akun dipakai di satu HP; anggota yang keluar grup masih memegang kunci lama
 (tapi aturan Firestore menolak dia membaca pesan baru).
 
 Aturan Firestore diuji dengan Firebase Emulator (pertemanan, kunci publik, chat pribadi, pesan, grup).
+
+`chats/{id}/messages/{msgId}.balas`: kutipan pesan yang dibalas (terenkripsi dengan kunci ruang).
+`fcmTokens/{uid}`: `token` FCM HP pengguna (hanya pemiliknya; dibaca server notifikasi).
+`panggilan/{id}`: `chatId`, `dari`, `video`, `grup`, `anggota`, `ikut`, `tolak`, `status`
+(`berdering`/`berlangsung`/`selesai`); `panggilan/{id}/sinyal/{x}`: sinyal WebRTC antar dua peserta.
+`panggilanMasuk/{uid}`: penanda ada yang menelepon (dipantau saat aplikasi terbuka).
+
+## Notifikasi instan (gratis, tanpa kartu)
+
+Firebase Cloud Functions butuh paket Blaze, jadi pengirim notifikasi memakai
+**Cloudflare Workers** (paket gratis, 100.000 permintaan/hari) di `server/notif-worker`.
+Setelah mengirim pesan atau memulai panggilan, HP pengirim memanggil `POST /kirim` dengan
+ID token Firebase. Server memeriksa token dan keanggotaan chat, lalu mengirim pesan FCM
+berisi data saja (`jenis`, `chatId`, `callId`). HP penerima membuka sendiri isi pesannya
+(tetap end-to-end) dan menampilkan notifikasi.
+
+Rahasia GitHub yang dibutuhkan (Settings → Secrets and variables → Actions):
+`CLOUDFLARE_API_TOKEN` (template "Edit Cloudflare Workers"), `CLOUDFLARE_ACCOUNT_ID`, dan
+`FIREBASE_SERVICE_ACCOUNT` (isi file JSON dari Firebase Console → Project settings →
+Service accounts → Generate new private key). Workflow `deploy-notif.yml` memasang server;
+`build-apk.yml` mengisi alamatnya ke APK (`--dart-define=NOTIF_URL=...`). Tanpa rahasia ini
+aplikasi tetap jalan dengan pemeriksaan tiap ~15 menit.
+
+## Panggilan suara/video
+
+WebRTC (`flutter_webrtc`) langsung antar HP, terenkripsi DTLS-SRTP. Firestore hanya dipakai
+untuk sinyal dan status. Server STUN gratis Google membantu HP saling menemukan; tanpa server
+TURN, sebagian kecil jaringan (mis. Wi-Fi kantor/sekolah yang ketat) bisa gagal tersambung.
+Grup memakai sambungan antar semua peserta (cocok untuk sekitar 2–6 orang).

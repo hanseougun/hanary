@@ -72,21 +72,17 @@ class ChatRoom {
   final Map<String, DateTime> readAt;
 
   /// Untuk chat pribadi: uid lawan bicara.
-  String otherMember(String myUid) =>
-      members.firstWhere((m) => m != myUid, orElse: () => myUid);
+  String otherMember(String myUid) => members.firstWhere((m) => m != myUid, orElse: () => myUid);
 
   /// Permintaan pesan yang masuk ke saya (belum saya terima).
-  bool isIncomingRequest(String myUid) =>
-      status == ChatStatus.permintaan && requester != null && requester != myUid;
+  bool isIncomingRequest(String myUid) => status == ChatStatus.permintaan && requester != null && requester != myUid;
 
   /// Saya mengirim permintaan dan masih menunggu jawaban.
-  bool isOutgoingRequest(String myUid) =>
-      status == ChatStatus.permintaan && requester == myUid;
+  bool isOutgoingRequest(String myUid) => status == ChatStatus.permintaan && requester == myUid;
 
   /// Saya boleh mengirim pesan di chat ini sekarang.
   bool canSend(String myUid) =>
-      status == ChatStatus.aktif ||
-      (status == ChatStatus.permintaan && requester == myUid && !requestSent);
+      status == ChatStatus.aktif || (status == ChatStatus.permintaan && requester == myUid && !requestSent);
 
   /// Id chat pribadi selalu sama untuk dua orang yang sama.
   static String privateId(String a, String b) {
@@ -103,8 +99,7 @@ class ChatRoom {
       isGroup: d['type'] == 'grup',
       members: List<String>.from(d['members'] as List? ?? const []),
       keys: {
-        for (final e in rawKeys.entries)
-          e.key: WrappedKey.fromMap(Map<String, dynamic>.from(e.value as Map)),
+        for (final e in rawKeys.entries) e.key: WrappedKey.fromMap(Map<String, dynamic>.from(e.value as Map)),
       },
       name: d['name'] as String? ?? '',
       deskripsi: d['deskripsi'] as String? ?? '',
@@ -151,6 +146,7 @@ class ChatMessage {
     this.createdAt,
     this.pending = false,
     this.ditarik = false,
+    this.balasBox,
   });
 
   final String id;
@@ -165,6 +161,9 @@ class ChatMessage {
   /// Ditarik pengirimnya: isi pesan sudah dikosongkan untuk semua orang.
   final bool ditarik;
 
+  /// Kutipan pesan yang dibalas (terenkripsi), lihat `BalasanPesan`.
+  final String? balasBox;
+
   factory ChatMessage.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> snap) {
     final d = snap.data() ?? const {};
     return ChatMessage(
@@ -175,6 +174,7 @@ class ChatMessage {
       createdAt: (d['createdAt'] as Timestamp?)?.toDate(),
       pending: snap.metadata.hasPendingWrites,
       ditarik: d['ditarik'] == true,
+      balasBox: d['balas'] is String && (d['balas'] as String).isNotEmpty ? d['balas'] as String : null,
     );
   }
 }

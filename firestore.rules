@@ -122,12 +122,14 @@ service cloud.firestore {
           canSend(get(/databases/$(database)/documents/chats/$(chatId)).data) &&
           (get(/databases/$(database)/documents/chats/$(chatId)).data.get('status', 'aktif') == 'aktif' ||
            getAfter(/databases/$(database)/documents/chats/$(chatId)).data.get('requestSent', false) == true);
-        // Tarik pesan: hanya pengirimnya, dan isinya harus dikosongkan.
+        // Tarik pesan: hanya pengirimnya, dan isinya (termasuk kutipan
+        // pesan yang dibalas) harus dikosongkan.
         allow update: if isChatMember(chatId) &&
           resource.data.senderId == request.auth.uid &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['box', 'ditarik']) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['box', 'ditarik', 'balas']) &&
           request.resource.data.box == '' &&
-          request.resource.data.ditarik == true;
+          request.resource.data.ditarik == true &&
+          !('balas' in request.resource.data);
         allow delete: if false;
       }
 
@@ -161,6 +163,78 @@ service cloud.firestore {
       allow create, update: if signedIn() &&
         request.resource.data.from == request.auth.uid &&
         request.resource.data.keys().hasOnly(['at', 'from', 'chat']);
+    }
+
+    // Alamat FCM HP pengguna (untuk notifikasi instan). Hanya pemiliknya;
+    // server notifikasi membacanya dengan akun layanan.
+    match /fcmTokens/{uid} {
+      allow read, delete: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid &&
+        request.resource.data.keys().hasOnly(['token', 'diperbarui']) &&
+        request.resource.data.token is string &&
+        request.resource.data.token.size() < 4096;
+    }
+
+    // Panggilan suara/video. Suara dan gambar dikirim langsung antar HP;
+    // di sini hanya status panggilan dan sinyal untuk menyambungkan.
+    function panggilanData(callId) {
+      return get(/databases/$(database)/documents/panggilan/$(callId)).data;
+    }
+
+    // Daftar [after] sama dengan [before], hanya boleh ditambah/dikurangi saya.
+    function hanyaSaya(before, after) {
+      return after.toSet().difference(before.toSet()).hasOnly([request.auth.uid]) &&
+        before.toSet().difference(after.toSet()).hasOnly([request.auth.uid]);
+    }
+
+    match /panggilan/{callId} {
+      allow get: if signedIn() &&
+        (resource == null || request.auth.uid in resource.data.anggota);
+      // Memulai panggilan di chat aktif; yang dipanggil = semua anggota chat.
+      allow create: if signedIn() &&
+        request.resource.data.keys().hasOnly(
+          ['chatId', 'dari', 'video', 'grup', 'anggota', 'ikut', 'tolak', 'status', 'dibuatMs', 'dibuat']) &&
+        request.resource.data.dari == request.auth.uid &&
+        request.resource.data.ikut == [request.auth.uid] &&
+        request.resource.data.tolak == [] &&
+        request.resource.data.status == 'berdering' &&
+        request.resource.data.video is bool &&
+        isChatMember(request.resource.data.chatId) &&
+        get(/databases/$(database)/documents/chats/$(request.resource.data.chatId)).data.members ==
+          request.resource.data.anggota &&
+        get(/databases/$(database)/documents/chats/$(request.resource.data.chatId)).data.get('status', 'aktif') == 'aktif';
+      // Ikut/keluar/menolak hanya untuk diri sendiri; panggilan yang
+      // selesai tidak bisa dimulai lagi.
+      allow update: if signedIn() && request.auth.uid in resource.data.anggota &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ikut', 'tolak', 'status']) &&
+        hanyaSaya(resource.data.ikut, request.resource.data.ikut) &&
+        hanyaSaya(resource.data.tolak, request.resource.data.tolak) &&
+        request.resource.data.status in ['berdering', 'berlangsung', 'selesai'] &&
+        (resource.data.status != 'selesai' || request.resource.data.status == 'selesai');
+      allow delete: if false;
+
+      // Sinyal WebRTC (penawaran, jawaban, kandidat jaringan) antar dua peserta.
+      match /sinyal/{sinyalId} {
+        allow read: if signedIn() &&
+          (resource.data.ke == request.auth.uid || resource.data.dari == request.auth.uid) &&
+          request.auth.uid in panggilanData(callId).anggota;
+        allow create: if signedIn() &&
+          request.resource.data.dari == request.auth.uid &&
+          request.auth.uid in panggilanData(callId).ikut &&
+          request.resource.data.ke in panggilanData(callId).anggota &&
+          request.resource.data.jenis in ['offer', 'answer', 'ice'];
+        allow update, delete: if false;
+      }
+    }
+
+    // Tanda "ada yang menelepon" untuk tiap orang (dipantau saat aplikasi terbuka).
+    match /panggilanMasuk/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() &&
+        request.resource.data.keys().hasOnly(['callId', 'dari', 'at']) &&
+        request.resource.data.dari == request.auth.uid &&
+        getAfter(/databases/$(database)/documents/panggilan/$(request.resource.data.callId)).data.dari == request.auth.uid &&
+        uid in getAfter(/databases/$(database)/documents/panggilan/$(request.resource.data.callId)).data.anggota;
     }
 
     // Foto profil yang diunggah sendiri (diperkecil, maks. ~400 KB).

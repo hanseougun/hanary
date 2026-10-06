@@ -28,6 +28,9 @@ dependencies:
   workmanager: ^0.10.10
   record: ^7.1.1
   audioplayers: ^6.8.1
+  firebase_messaging: ^16.7.0
+  image_cropper: ^12.2.1
+  flutter_webrtc: ^1.6.2+hotfix.3
 
 dev_dependencies:
   flutter_test:

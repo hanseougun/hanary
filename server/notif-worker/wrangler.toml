@@ -1,0 +1,6 @@
+# Server notifikasi Hanary di Cloudflare Workers (paket gratis).
+# Dipasang otomatis oleh .github/workflows/deploy-notif.yml.
+name = "hanary-notif"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+workers_dev = true

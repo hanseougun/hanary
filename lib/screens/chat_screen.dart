@@ -5,6 +5,7 @@ import '../models/chat_payload.dart';
 import '../models/chat_room.dart';
 import '../services/chat_keys.dart';
 import '../services/chat_repository.dart';
+import '../services/draf_chat.dart';
 import '../services/friend_repository.dart';
 import 'chat/chat_room_screen.dart';
 import 'chat/chat_widgets.dart';
@@ -29,6 +30,7 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     // Siapkan kunci enkripsi HP ini sejak awal agar teman bisa mengirim pesan.
     ChatKeys.instance.keyPairFor(widget.user.uid).ignore();
+    DrafChat.instance.muat();
   }
 
   @override
@@ -303,16 +305,36 @@ class _RoomTileState extends State<_RoomTile> {
                   uid: other,
                   style: unread > 0 ? const TextStyle(fontWeight: FontWeight.bold) : null,
                 ),
-          subtitle: FutureBuilder<String>(
-            future: _preview,
-            builder: (context, snap) => Text(
-              room.isOutgoingRequest(me) && room.requestSent
-                  ? 'Menunggu diterima · ${snap.data ?? ''}'
-                  : snap.data ?? '',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: unread > 0 ? TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w600) : null,
-            ),
+          subtitle: ListenableBuilder(
+            listenable: DrafChat.instance,
+            builder: (context, _) {
+              // Pesan yang belum terkirim ditampilkan sebagai "Draf".
+              final draf = DrafChat.instance.dari(room.id).trim();
+              if (draf.isNotEmpty) {
+                return Text.rich(
+                  TextSpan(children: [
+                    TextSpan(
+                      text: 'Draf: ',
+                      style: TextStyle(color: theme.colorScheme.error, fontWeight: FontWeight.w600),
+                    ),
+                    TextSpan(text: draf.replaceAll('\n', ' ')),
+                  ]),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                );
+              }
+              return FutureBuilder<String>(
+                future: _preview,
+                builder: (context, snap) => Text(
+                  room.isOutgoingRequest(me) && room.requestSent
+                      ? 'Menunggu diterima · ${snap.data ?? ''}'
+                      : snap.data ?? '',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: unread > 0 ? TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w600) : null,
+                ),
+              );
+            },
           ),
           trailing: Column(
             mainAxisAlignment: MainAxisAlignment.center,

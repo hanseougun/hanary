@@ -79,9 +79,7 @@ class _StoryItemState extends State<_StoryItem> {
         if (story == null && !_milikSaya) return const SizedBox.shrink();
         return InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () => _milikSaya
-              ? tulisStory(context, me, story)
-              : lihatStory(context, me, story!),
+          onTap: () => _milikSaya ? tulisStory(context, me, story) : lihatStory(context, me, story!),
           child: SizedBox(
             width: 84,
             child: Column(
@@ -166,7 +164,9 @@ class _Gelembung extends StatelessWidget {
           decoration: BoxDecoration(
             color: warna,
             borderRadius: BorderRadius.circular(12),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 4, offset: const Offset(0, 2))],
+            boxShadow: [
+              BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 4, offset: const Offset(0, 2))
+            ],
           ),
           child: Text(
             teks,
@@ -273,7 +273,10 @@ class _TulisStoryState extends State<_TulisStory> {
               textCapitalization: TextCapitalization.sentences,
               style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
               cursorColor: Colors.white,
+              // Tanpa isian latar dari tema: di mode terang isiannya putih,
+              // sehingga teks putih tidak terlihat.
               decoration: const InputDecoration(
+                filled: false,
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,

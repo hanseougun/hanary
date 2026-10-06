@@ -6,6 +6,7 @@ import '../models/chat_room.dart';
 import 'chat_crypto.dart';
 import 'chat_files.dart';
 import 'chat_keys.dart';
+import 'push_service.dart';
 
 /// Baca/tulis ruang chat dan pesan. Semua isi pesan dienkripsi di HP
 /// sebelum dikirim, dan dibuka lagi di HP penerima.
@@ -120,12 +121,10 @@ class ChatRepository {
   }
 
   /// Menerima permintaan pesan: chat menjadi chat biasa.
-  Future<void> acceptRequest(String chatId) =>
-      _chats.doc(chatId).update({'status': ChatStatus.aktif.name});
+  Future<void> acceptRequest(String chatId) => _chats.doc(chatId).update({'status': ChatStatus.aktif.name});
 
   /// Menolak permintaan pesan: pengirim tidak bisa mengirim lagi.
-  Future<void> rejectRequest(String chatId) =>
-      _chats.doc(chatId).update({'status': ChatStatus.ditolak.name});
+  Future<void> rejectRequest(String chatId) => _chats.doc(chatId).update({'status': ChatStatus.ditolak.name});
 
   Future<String> createGroup({
     required String me,
@@ -187,20 +186,28 @@ class ChatRepository {
         .map((s) => s.docs.map(ChatMessage.fromSnapshot).toList());
   }
 
-  Future<void> send(ChatRoom room, String me, SecretKey key, String text) =>
-      sendIsi(room, me, key, IsiPesan.teks(text));
+  Future<void> send(ChatRoom room, String me, SecretKey key, String text, {BalasanPesan? balas}) =>
+      sendIsi(room, me, key, IsiPesan.teks(text), balas: balas);
 
   /// Mengirim pesan (teks, foto, file, atau tugas). Isinya dienkripsi dulu.
-  Future<void> sendIsi(ChatRoom room, String me, SecretKey key, IsiPesan isi) async {
+  /// [balas]: pesan yang sedang dibalas (ikut dienkripsi).
+  Future<void> sendIsi(ChatRoom room, String me, SecretKey key, IsiPesan isi, {BalasanPesan? balas}) async {
     final plain = isi.encode();
     final box = await ChatCrypto.encryptText(plain, key, room.id);
     final msgRef = _chats.doc(room.id).collection('messages').doc();
     _plain['${room.id}|$box'] = plain;
+    String? balasBox;
+    if (balas != null) {
+      final p = balas.encode();
+      balasBox = await ChatCrypto.encryptText(p, key, room.id);
+      _plain['${room.id}|$balasBox'] = p;
+    }
     final batch = _db.batch();
     batch.set(msgRef, {
       'senderId': me,
       'box': box,
       'kind': isi.kind.name,
+      if (balasBox != null) 'balas': balasBox,
       'createdAt': FieldValue.serverTimestamp(),
     });
     batch.update(_chats.doc(room.id), {
@@ -215,13 +222,18 @@ class ChatRepository {
       'at': FieldValue.serverTimestamp(),
     }).catchError((Object _) {});
     _pingInbox(room, me);
+    PushService.instance.beriTahu(chatId: room.id);
   }
 
   /// Menarik pesan saya untuk semua orang: isinya dikosongkan di server,
   /// dan potongan foto/file/suaranya dihapus.
   Future<void> tarik(ChatRoom room, ChatMessage m, {BerkasChat? berkas}) async {
     final batch = _db.batch();
-    batch.update(_chats.doc(room.id).collection('messages').doc(m.id), {'box': '', 'ditarik': true});
+    batch.update(_chats.doc(room.id).collection('messages').doc(m.id), {
+      'box': '',
+      'ditarik': true,
+      if (m.balasBox != null) 'balas': FieldValue.delete(),
+    });
     if (room.lastBox == m.box) {
       batch.update(_chats.doc(room.id), {'lastBox': '', 'lastKind': lastKindDitarik});
     }
@@ -256,12 +268,7 @@ class ChatRepository {
   /// Menandai chat sudah saya baca. Jika [publish], anggota lain juga bisa
   /// melihat tanda "sudah dibaca".
   Future<void> markRead(ChatRoom room, String me, {required bool publish}) async {
-    await _db
-        .collection('users')
-        .doc(me)
-        .collection('bacaan')
-        .doc(room.id)
-        .set({'at': FieldValue.serverTimestamp()});
+    await _db.collection('users').doc(me).collection('bacaan').doc(room.id).set({'at': FieldValue.serverTimestamp()});
     if (room.status == ChatStatus.aktif) {
       await _chats.doc(room.id).update({
         'readAt.$me': publish ? FieldValue.serverTimestamp() : FieldValue.delete(),

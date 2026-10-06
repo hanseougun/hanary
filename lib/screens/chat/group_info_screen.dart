@@ -4,6 +4,7 @@ import '../../models/chat_room.dart';
 import '../../services/avatar_service.dart';
 import '../../services/chat_repository.dart';
 import 'chat_widgets.dart';
+import 'lihat_foto.dart';
 import 'new_group_screen.dart';
 import 'profil_orang_screen.dart';
 
@@ -34,8 +35,33 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
   }
 
   Future<void> _gantiFoto(ChatRoom room) async {
+    if (room.fotoVer != null) {
+      final pilihan = await showModalBottomSheet<String>(
+        context: context,
+        showDragHandle: true,
+        builder: (ctx) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.fullscreen_rounded),
+                title: const Text('Lihat foto'),
+                onTap: () => Navigator.pop(ctx, 'lihat'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Ganti foto'),
+                onTap: () => Navigator.pop(ctx, 'ganti'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (pilihan == null || !mounted) return;
+      if (pilihan == 'lihat') return lihatFotoGrup(context, room);
+    }
     try {
-      final foto = await AvatarService.instance.pilihFoto();
+      final foto = await AvatarService.instance.pilihFoto(context);
       if (foto == null) return;
       await AvatarService.instance.simpanFotoGrup(room.id, foto);
     } catch (e) {
