@@ -120,11 +120,19 @@ class PengaturanScreen extends StatelessWidget {
                       leading: const Icon(Icons.info_outline_rounded),
                       title: const Text('Tentang Hanary'),
                       trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () => showAboutDialog(
+                      onTap: () => showDialog<void>(
                         context: context,
-                        applicationName: 'Hanary',
-                        applicationIcon: const LogoHanary(ukuran: 56, bayangan: false),
-                        applicationLegalese: 'Catat tugas & deadline, kerjakan bareng teman.',
+                        builder: (context) => AlertDialog(
+                          icon: const LogoHanary(ukuran: 56, bayangan: false),
+                          title: const Text('Hanary'),
+                          content: const Text(
+                            'Catat tugas & deadline, kerjakan bareng teman.\n\n© 2026 hanseougun',
+                            textAlign: TextAlign.center,
+                          ),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Tutup')),
+                          ],
+                        ),
                       ),
                     ),
                   ],

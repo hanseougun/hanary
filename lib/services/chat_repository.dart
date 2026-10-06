@@ -4,6 +4,7 @@ import 'package:cryptography/cryptography.dart';
 import '../models/chat_payload.dart';
 import '../models/chat_room.dart';
 import 'chat_crypto.dart';
+import 'chat_files.dart';
 import 'chat_keys.dart';
 
 /// Baca/tulis ruang chat dan pesan. Semua isi pesan dienkripsi di HP
@@ -214,6 +215,18 @@ class ChatRepository {
       'at': FieldValue.serverTimestamp(),
     }).catchError((Object _) {});
     _pingInbox(room, me);
+  }
+
+  /// Menarik pesan saya untuk semua orang: isinya dikosongkan di server,
+  /// dan potongan foto/file/suaranya dihapus.
+  Future<void> tarik(ChatRoom room, ChatMessage m, {BerkasChat? berkas}) async {
+    final batch = _db.batch();
+    batch.update(_chats.doc(room.id).collection('messages').doc(m.id), {'box': '', 'ditarik': true});
+    if (room.lastBox == m.box) {
+      batch.update(_chats.doc(room.id), {'lastBox': '', 'lastKind': lastKindDitarik});
+    }
+    await batch.commit();
+    if (berkas != null) await ChatFiles.instance.hapus(room.id, berkas);
   }
 
   /// Memberi tahu anggota lain bahwa ada pesan baru (dipakai pemeriksaan

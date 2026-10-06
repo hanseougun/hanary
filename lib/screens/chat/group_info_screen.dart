@@ -5,6 +5,7 @@ import '../../services/avatar_service.dart';
 import '../../services/chat_repository.dart';
 import 'chat_widgets.dart';
 import 'new_group_screen.dart';
+import 'profil_orang_screen.dart';
 
 /// Info grup: foto, nama, deskripsi, daftar anggota, tambah anggota,
 /// dan keluar dari grup. Semua anggota boleh mengubah info grup.
@@ -170,6 +171,7 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
                   leading: UserAvatar(uid: m, showOnline: true),
                   title: m == widget.me ? const Text('Kamu') : UserName(uid: m),
                   trailing: m == room.admin ? const Chip(label: Text('Pembuat')) : null,
+                  onTap: m == widget.me ? null : () => bukaProfil(context, m),
                 ),
               const Divider(),
               ListTile(

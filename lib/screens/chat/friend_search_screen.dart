@@ -5,6 +5,7 @@ import '../../services/chat_repository.dart';
 import '../../services/friend_repository.dart';
 import 'chat_room_screen.dart';
 import 'chat_widgets.dart';
+import 'profil_orang_screen.dart';
 
 /// Mencari pengguna lain berdasarkan sebutan atau email, lalu
 /// mengirim permintaan pertemanan.
@@ -111,7 +112,10 @@ class _FriendSearchScreenState extends State<FriendSearchScreen> {
                                 children: [
                                   for (final u in users)
                                     ListTile(
-                                      leading: UserAvatar(uid: u.uid),
+                                      leading: GestureDetector(
+                                        onTap: () => bukaProfil(context, u.uid),
+                                        child: UserAvatar(uid: u.uid),
+                                      ),
                                       title: Text(u.sebutan.isNotEmpty ? u.sebutan : u.namaLengkap),
                                       subtitle: Text(
                                         [u.namaLengkap, u.sekolah].where((s) => s.isNotEmpty).join(' · '),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/app_user.dart';
+import '../models/chat_payload.dart';
 import '../models/chat_room.dart';
 import '../services/chat_keys.dart';
 import '../services/chat_repository.dart';
@@ -9,6 +10,7 @@ import 'chat/chat_room_screen.dart';
 import 'chat/chat_widgets.dart';
 import 'chat/friend_search_screen.dart';
 import 'chat/new_group_screen.dart';
+import 'chat/profil_orang_screen.dart';
 import 'chat/story_widgets.dart';
 import 'pengaturan/pengaturan_chat_screen.dart';
 
@@ -268,6 +270,9 @@ class _RoomTileState extends State<_RoomTile> {
     final key = await repo.roomKey(room, widget.me);
     final box = room.lastBox;
     if (box == null) return room.isOutgoingRequest(widget.me) ? 'Menunggu diterima' : 'Belum ada pesan';
+    if (room.lastKind == lastKindDitarik) {
+      return room.lastSender == widget.me ? 'Kamu menarik pesan' : 'Pesan ditarik';
+    }
     if (key == null) return 'Pesan terenkripsi';
     final isi = await repo.decryptIsi(room.id, MessageKind.dari(room.lastKind), box, key);
     final text = isi?.ringkas() ?? 'Pesan terenkripsi';
@@ -285,9 +290,12 @@ class _RoomTileState extends State<_RoomTile> {
       builder: (context, unreadSnap) {
         final unread = unreadSnap.data ?? 0;
         return ListTile(
-          leading: Hero(
-            tag: 'avatar-${room.id}',
-            child: room.isGroup ? GroupAvatar(room: room) : UserAvatar(uid: other, showOnline: true),
+          leading: GestureDetector(
+            onTap: room.isGroup ? null : () => bukaProfil(context, other),
+            child: Hero(
+              tag: 'avatar-${room.id}',
+              child: room.isGroup ? GroupAvatar(room: room) : UserAvatar(uid: other, showOnline: true),
+            ),
           ),
           title: room.isGroup
               ? Text(room.name, maxLines: 1, overflow: TextOverflow.ellipsis)
@@ -411,6 +419,7 @@ class _FriendsTabState extends State<_FriendsTab> {
                     ListTile(
                       leading: UserAvatar(uid: from),
                       title: UserName(uid: from),
+                      onTap: () => bukaProfil(context, from),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -439,7 +448,11 @@ class _FriendsTabState extends State<_FriendsTab> {
                   ),
                 for (final friend in list)
                   ListTile(
-                    leading: UserAvatar(uid: friend, showOnline: true),
+                    // Ketuk foto: lihat profil. Ketuk baris: buka chat.
+                    leading: GestureDetector(
+                      onTap: () => bukaProfil(context, friend, onKirimPesan: () => _openChat(context, friend)),
+                      child: UserAvatar(uid: friend, showOnline: true),
+                    ),
                     title: UserName(uid: friend),
                     subtitle: PresenceText(uid: friend, style: theme.textTheme.bodySmall),
                     trailing: const Icon(Icons.chat_bubble_outline),

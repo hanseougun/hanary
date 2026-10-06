@@ -66,7 +66,6 @@ class _ProfileFormScreenState extends State<ProfileFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.isOnboarding ? 'Lengkapi profil' : 'Edit profil'),
@@ -82,55 +81,43 @@ class _ProfileFormScreenState extends State<ProfileFormScreen> {
         child: Form(
           key: _formKey,
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
             children: [
-              if (widget.isOnboarding) ...[
-                Text(
-                  'Kenalan dulu, yuk! Data ini akan terlihat oleh temanmu di chat.',
-                  style: theme.textTheme.bodyLarge,
-                ),
-                const SizedBox(height: 20),
-              ],
-              TextFormField(
+              _Isian(
                 controller: _nama,
-                decoration: const InputDecoration(labelText: 'Nama lengkap *'),
-                textCapitalization: TextCapitalization.words,
-                textInputAction: TextInputAction.next,
+                label: 'Nama lengkap',
+                icon: Icons.badge_outlined,
+                kapital: TextCapitalization.words,
                 validator: _required,
               ),
-              const SizedBox(height: 16),
-              TextFormField(
+              _Isian(
                 controller: _sebutan,
-                decoration: const InputDecoration(
-                  labelText: 'Sebutan / nama panggilan *',
-                  helperText: 'Dipakai untuk menyapamu, mis. "Gun"',
-                ),
-                textCapitalization: TextCapitalization.words,
-                textInputAction: TextInputAction.next,
+                label: 'Nama panggilan',
+                icon: Icons.waving_hand_outlined,
+                kapital: TextCapitalization.words,
                 maxLength: 30,
                 validator: _required,
               ),
-              const SizedBox(height: 8),
-              TextFormField(
+              _Isian(
                 controller: _sekolah,
-                decoration: const InputDecoration(labelText: 'Sekolah / kampus'),
-                textCapitalization: TextCapitalization.words,
-                textInputAction: TextInputAction.next,
+                label: 'Sekolah / kampus',
+                icon: Icons.school_outlined,
+                kapital: TextCapitalization.words,
               ),
-              const SizedBox(height: 16),
-              TextFormField(
+              _Isian(
                 controller: _kelas,
-                decoration: const InputDecoration(labelText: 'Kelas / jurusan'),
-                textInputAction: TextInputAction.next,
+                label: 'Kelas / jurusan',
+                icon: Icons.class_outlined,
               ),
-              const SizedBox(height: 16),
-              TextFormField(
+              _Isian(
                 controller: _bio,
-                decoration: const InputDecoration(labelText: 'Bio singkat'),
+                label: 'Bio',
+                icon: Icons.edit_note_rounded,
                 maxLines: 3,
                 maxLength: 150,
+                terakhir: true,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
               FilledButton(
                 onPressed: _saving ? null : _save,
                 style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
@@ -145,6 +132,55 @@ class _ProfileFormScreenState extends State<ProfileFormScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Satu kolom isian dengan ikon dan jarak yang seragam.
+class _Isian extends StatelessWidget {
+  const _Isian({
+    required this.controller,
+    required this.label,
+    required this.icon,
+    this.kapital = TextCapitalization.none,
+    this.validator,
+    this.maxLength,
+    this.maxLines = 1,
+    this.terakhir = false,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final IconData icon;
+  final TextCapitalization kapital;
+  final String? Function(String?)? validator;
+  final int? maxLength;
+  final int maxLines;
+  final bool terakhir;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: TextFormField(
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: maxLines > 1
+              ? Padding(padding: const EdgeInsets.only(bottom: 44), child: Icon(icon))
+              : Icon(icon),
+          alignLabelWithHint: maxLines > 1,
+        ),
+        textCapitalization: kapital,
+        textInputAction: terakhir ? TextInputAction.done : TextInputAction.next,
+        maxLines: maxLines,
+        maxLength: maxLength,
+        // Penghitung huruf hanya untuk bio, agar jarak antar kolom tetap rapi.
+        buildCounter: maxLines > 1
+            ? null
+            : (context, {required currentLength, required isFocused, required maxLength}) => null,
+        validator: validator,
       ),
     );
   }

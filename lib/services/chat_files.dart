@@ -97,6 +97,19 @@ class ChatFiles {
       }
     });
   }
+
+  /// Menghapus potongan file di server dan salinannya di HP
+  /// (dipakai saat pesan ditarik). Gagal pun tidak masalah.
+  Future<void> hapus(String chatId, BerkasChat b) async {
+    final files = _files(chatId);
+    for (var n = 0; n < b.parts; n++) {
+      await files.doc('${b.fileId}_$n').delete().catchError((Object _) {});
+    }
+    try {
+      final f = await fileLokal(b);
+      if (await f.exists()) await f.delete();
+    } catch (_) {}
+  }
 }
 
 class FileTerlaluBesar implements Exception {
