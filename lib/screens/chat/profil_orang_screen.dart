@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../theme/hanary_theme.dart';
 import '../../widgets/hanary_widgets.dart';
 import 'chat_widgets.dart';
+import 'lihat_foto.dart';
 
 /// Membuka profil orang lain (foto, nama, bio, sekolah, kelas).
 void bukaProfil(BuildContext context, String uid, {VoidCallback? onKirimPesan}) {
@@ -45,13 +46,17 @@ class ProfilOrangScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(3),
                         decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
-                        child: UserAvatar(uid: uid, radius: 46),
+                        child: GestureDetector(
+                          onTap: () => lihatFotoUser(context, uid),
+                          child: UserAvatar(uid: uid, radius: 46),
+                        ),
                       ),
                       const SizedBox(height: 12),
                       Text(
                         nama,
                         textAlign: TextAlign.center,
-                        style: theme.textTheme.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.w800),
+                        style:
+                            theme.textTheme.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.w800),
                       ),
                       PresenceText(
                         uid: uid,

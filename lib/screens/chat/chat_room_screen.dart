@@ -17,12 +17,15 @@ import '../../models/tugas.dart';
 import '../../services/chat_files.dart';
 import '../../services/chat_notifier.dart';
 import '../../services/chat_repository.dart';
+import '../../services/draf_chat.dart';
+import '../../services/edit_gambar.dart';
 import '../../services/notifikasi_service.dart';
 import '../../services/pesan_dihapus.dart';
 import '../../services/tugas_repository.dart';
 import '../../theme/hanary_theme.dart';
 import 'chat_widgets.dart';
 import 'group_info_screen.dart';
+import 'panggilan_screen.dart';
 import 'pesan_suara.dart';
 import 'profil_orang_screen.dart';
 
@@ -57,6 +60,10 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   Future<SecretKey?>? _keyFuture;
   String? _keySignature;
   bool _sending = false;
+  final _fokus = FocusNode();
+
+  /// Pesan yang sedang dibalas (tampil di atas kolom ketik).
+  BalasanPesan? _balas;
   DateTime? _dibacaSampai;
   String? _statusDibaca;
 
@@ -74,12 +81,36 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     PesanDihapus.instance.muat(widget.chatId).then((_) {
       if (mounted) setState(() {});
     });
+    // Draf yang belum terkirim dikembalikan ke kolom ketik.
+    if (widget.draft == null) {
+      DrafChat.instance.ambil(widget.chatId).then((teks) {
+        if (mounted && _input.text.isEmpty && teks.isNotEmpty) _input.text = teks;
+      });
+    }
+    _input.addListener(_simpanDraf);
+  }
+
+  void _simpanDraf() => DrafChat.instance.simpan(widget.chatId, _input.text);
+
+  /// Mengambil pesan yang sedang dibalas, lalu menutup kutipannya.
+  BalasanPesan? _ambilBalas() {
+    final b = _balas;
+    if (b != null && mounted) setState(() => _balas = null);
+    return b;
+  }
+
+  void _mulaiBalas(BalasanPesan b) {
+    setState(() => _balas = b);
+    _fokus.requestFocus();
   }
 
   @override
   void dispose() {
     if (ChatNotifier.instance.openChatId == widget.chatId) ChatNotifier.instance.openChatId = null;
+    _input.removeListener(_simpanDraf);
+    DrafChat.instance.simpan(widget.chatId, _input.text, segera: true);
     _input.dispose();
+    _fokus.dispose();
     _detikRekam?.cancel();
     _perekam?.cancel().whenComplete(() => _perekam?.dispose());
     super.dispose();
@@ -113,9 +144,11 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     final text = _input.text.trim();
     if (text.isEmpty || _sending) return;
     setState(() => _sending = true);
+    final balas = _balas;
     try {
-      await _repo.send(room, widget.me, key, text);
+      await _repo.send(room, widget.me, key, text, balas: balas);
       _input.clear();
+      if (mounted && identical(_balas, balas)) setState(() => _balas = null);
     } catch (e) {
       if (mounted) showError(context, e);
     } finally {
@@ -196,6 +229,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
           widget.me,
           key,
           IsiPesan.berkas(MessageKind.suara, berkas.denganDurasi(durasi.inMilliseconds)),
+          balas: _ambilBalas(),
         );
       } finally {
         if (mounted) setState(() => _unggahan.remove(u));
@@ -234,9 +268,11 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
             maxHeight: 1600,
             imageQuality: 75,
           );
-          if (foto == null) return;
-          final nama = foto.name.isNotEmpty ? foto.name : 'foto.jpg';
-          await _kirimBerkas(room, key, nama, await foto.readAsBytes(), isGambar: true);
+          if (foto == null || !mounted) return;
+          // Edit dulu (potong, putar) sebelum dikirim.
+          final hasil = await editGambar(context, foto.path);
+          if (hasil == null) return;
+          await _kirimBerkas(room, key, 'foto.jpg', await File(hasil).readAsBytes(), isGambar: true);
         case 'file':
           final hasil = await FilePicker.pickFiles();
           for (final f in hasil) {
@@ -249,7 +285,13 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         case 'tugas':
           final tugas = await pilihTugas(context, widget.me);
           if (tugas == null) return;
-          await _repo.sendIsi(room, widget.me, key, IsiPesan.tugas(TugasBagikan.dariTugas(tugas)));
+          await _repo.sendIsi(
+            room,
+            widget.me,
+            key,
+            IsiPesan.tugas(TugasBagikan.dariTugas(tugas)),
+            balas: _ambilBalas(),
+          );
       }
     } catch (e) {
       if (mounted) showError(context, e);
@@ -288,6 +330,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
           berkas,
           teks: isGambar ? keterangan : '',
         ),
+        balas: _ambilBalas(),
       );
     } finally {
       if (mounted) setState(() => _unggahan.remove(u));
@@ -350,6 +393,18 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
               ),
             ),
             actions: [
+              if (room.status == ChatStatus.aktif) ...[
+                IconButton(
+                  tooltip: 'Panggilan suara',
+                  icon: const Icon(Icons.call_outlined),
+                  onPressed: () => mulaiPanggilan(context, room: room, me: widget.me, video: false),
+                ),
+                IconButton(
+                  tooltip: 'Panggilan video',
+                  icon: const Icon(Icons.videocam_outlined),
+                  onPressed: () => mulaiPanggilan(context, room: room, me: widget.me, video: true),
+                ),
+              ],
               if (room.isGroup)
                 IconButton(
                   tooltip: 'Info grup',
@@ -415,6 +470,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
               message: m,
               roomKey: key,
               me: widget.me,
+              onBalas: _mulaiBalas,
               isMine: m.senderId == widget.me,
               showSender: room.isGroup && m.senderId != widget.me && (older?.senderId != m.senderId || hariBaru),
               dibaca: lihatDibaca && _sudahDibaca(room, m),
@@ -518,58 +574,89 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         onKirim: _kirimRekaman,
       );
     }
+    final balas = _balas;
     return SafeArea(
       top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            if (bolehLampiran)
-              IconButton(
-                tooltip: 'Kirim foto, file, atau tugas',
-                onPressed: () => _lampirkan(room, key),
-                icon: const Icon(Icons.add_circle_outline),
-              ),
-            Expanded(
-              child: TextField(
-                controller: _input,
-                minLines: 1,
-                maxLines: 5,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: InputDecoration(
-                  hintText: 'Tulis pesan',
-                  isDense: true,
-                  filled: true,
-                  fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  border: const OutlineInputBorder(
-                    borderSide: BorderSide.none,
-                    borderRadius: BorderRadius.all(Radius.circular(24)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            child: balas == null
+                ? const SizedBox(width: double.infinity)
+                : Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 6, 4, 0),
+                    child: Row(
+                      children: [
+                        Icon(Icons.reply_rounded, color: Theme.of(context).colorScheme.primary),
+                        const SizedBox(width: 8),
+                        Expanded(child: KutipanBalasan(balas: balas, me: widget.me)),
+                        IconButton(
+                          tooltip: 'Batal membalas',
+                          icon: const Icon(Icons.close_rounded),
+                          onPressed: () => setState(() => _balas = null),
+                        ),
+                      ],
+                    ),
                   ),
+          ),
+          _barisKetik(room, key, bolehLampiran),
+        ],
+      ),
+    );
+  }
+
+  Widget _barisKetik(ChatRoom room, SecretKey key, bool bolehLampiran) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (bolehLampiran)
+            IconButton(
+              tooltip: 'Kirim foto, file, atau tugas',
+              onPressed: () => _lampirkan(room, key),
+              icon: const Icon(Icons.add_circle_outline),
+            ),
+          Expanded(
+            child: TextField(
+              controller: _input,
+              focusNode: _fokus,
+              minLines: 1,
+              maxLines: 5,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(
+                hintText: 'Tulis pesan',
+                isDense: true,
+                filled: true,
+                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                border: const OutlineInputBorder(
+                  borderSide: BorderSide.none,
+                  borderRadius: BorderRadius.all(Radius.circular(24)),
                 ),
               ),
             ),
-            const SizedBox(width: 4),
-            // Kolom kosong: tombol mikrofon untuk pesan suara.
-            ValueListenableBuilder<TextEditingValue>(
-              valueListenable: _input,
-              builder: (context, nilai, _) {
-                if (nilai.text.trim().isEmpty && bolehLampiran) {
-                  return IconButton.filled(
-                    tooltip: 'Rekam pesan suara',
-                    onPressed: _mulaiMerekam,
-                    icon: const Icon(Icons.mic),
-                  );
-                }
+          ),
+          const SizedBox(width: 4),
+          // Kolom kosong: tombol mikrofon untuk pesan suara.
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _input,
+            builder: (context, nilai, _) {
+              if (nilai.text.trim().isEmpty && bolehLampiran) {
                 return IconButton.filled(
-                  tooltip: 'Kirim',
-                  onPressed: _sending ? null : () => _send(room, key),
-                  icon: const Icon(Icons.send),
+                  tooltip: 'Rekam pesan suara',
+                  onPressed: _mulaiMerekam,
+                  icon: const Icon(Icons.mic),
                 );
-              },
-            ),
-          ],
-        ),
+              }
+              return IconButton.filled(
+                tooltip: 'Kirim',
+                onPressed: _sending ? null : () => _send(room, key),
+                icon: const Icon(Icons.send),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -734,8 +821,10 @@ class _Bubble extends StatefulWidget {
     required this.showSender,
     required this.dibaca,
     required this.onHapusUntukSaya,
+    required this.onBalas,
   });
   final Future<void> Function() onHapusUntukSaya;
+  final void Function(BalasanPesan balas) onBalas;
   final ChatRoom room;
   final ChatMessage message;
   final SecretKey roomKey;
@@ -750,7 +839,27 @@ class _Bubble extends StatefulWidget {
 
 class _BubbleState extends State<_Bubble> {
   late Future<IsiPesan?> _isi = _buka();
+  late Future<BalasanPesan?> _kutipan = _bukaKutipan();
   IsiPesan? _terbuka;
+
+  /// Jarak geser ke kanan untuk membalas.
+  double _geser = 0;
+  static const _batasGeser = 64.0;
+
+  Future<BalasanPesan?> _bukaKutipan() async {
+    final box = widget.message.balasBox;
+    if (box == null || widget.message.ditarik) return null;
+    final plain = await ChatRepository.instance.decrypt(widget.room.id, box, widget.roomKey);
+    return plain == null ? null : BalasanPesan.parse(plain);
+  }
+
+  bool get _bisaDibalas => !widget.message.ditarik && !widget.message.pending && _terbuka != null;
+
+  void _balas() {
+    final isi = _terbuka;
+    if (isi == null) return;
+    widget.onBalas(BalasanPesan.dariPesan(widget.message.id, widget.message.senderId, isi));
+  }
 
   Future<IsiPesan?> _buka() async {
     if (widget.message.ditarik) return null;
@@ -772,6 +881,12 @@ class _BubbleState extends State<_Bubble> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (_bisaDibalas)
+              ListTile(
+                leading: const Icon(Icons.reply_rounded),
+                title: const Text('Balas'),
+                onTap: () => Navigator.pop(ctx, 'balas'),
+              ),
             if (isi != null && isi.kind == MessageKind.teks)
               ListTile(
                 leading: const Icon(Icons.copy_rounded),
@@ -797,6 +912,8 @@ class _BubbleState extends State<_Bubble> {
     );
     if (!mounted || pilihan == null) return;
     switch (pilihan) {
+      case 'balas':
+        _balas();
       case 'salin':
         await Clipboard.setData(ClipboardData(text: isi!.teks));
         if (mounted) {
@@ -828,6 +945,11 @@ class _BubbleState extends State<_Bubble> {
         old.roomKey != widget.roomKey) {
       _isi = _buka();
     }
+    if (old.message.balasBox != widget.message.balasBox ||
+        old.message.ditarik != widget.message.ditarik ||
+        old.roomKey != widget.roomKey) {
+      _kutipan = _bukaKutipan();
+    }
   }
 
   @override
@@ -857,76 +979,104 @@ class _BubbleState extends State<_Bubble> {
           constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.78),
           child: GestureDetector(
             onLongPress: _menu,
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 3),
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
-              decoration: BoxDecoration(color: bg, borderRadius: radius),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (widget.showSender)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 2),
-                      child: GestureDetector(
-                        onTap: () => bukaProfil(context, m.senderId),
-                        child: UserName(
-                          uid: m.senderId,
-                          style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.primary),
+            // Geser pesan ke kanan untuk membalas.
+            onHorizontalDragUpdate: (d) {
+              if (!_bisaDibalas) return;
+              final baru = (_geser + d.delta.dx).clamp(0.0, _batasGeser + 16);
+              if (_geser < _batasGeser && baru >= _batasGeser) HapticFeedback.selectionClick();
+              setState(() => _geser = baru);
+            },
+            onHorizontalDragEnd: (_) {
+              if (_geser >= _batasGeser) _balas();
+              setState(() => _geser = 0);
+            },
+            onHorizontalDragCancel: () => setState(() => _geser = 0),
+            child: AnimatedContainer(
+              duration: Duration(milliseconds: _geser == 0 ? 180 : 0),
+              transform: Matrix4.translationValues(_geser, 0, 0),
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 3),
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
+                decoration: BoxDecoration(color: bg, borderRadius: radius),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (widget.showSender)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: GestureDetector(
+                          onTap: () => bukaProfil(context, m.senderId),
+                          child: UserName(
+                            uid: m.senderId,
+                            style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.primary),
+                          ),
                         ),
                       ),
-                    ),
-                  if (m.ditarik)
+                    if (m.balasBox != null && !m.ditarik)
+                      FutureBuilder<BalasanPesan?>(
+                        future: _kutipan,
+                        builder: (context, snap) {
+                          final b = snap.data;
+                          if (b == null) return const SizedBox.shrink();
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: KutipanBalasan(balas: b, me: widget.me, warnaTeks: fg),
+                          );
+                        },
+                      ),
+                    if (m.ditarik)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.block, size: 16, color: fg.withValues(alpha: 0.7)),
+                          const SizedBox(width: 6),
+                          Text(
+                            isMine ? 'Kamu menarik pesan ini' : 'Pesan ini ditarik',
+                            style: TextStyle(color: fg.withValues(alpha: 0.7), fontStyle: FontStyle.italic),
+                          ),
+                        ],
+                      )
+                    else
+                      FutureBuilder<IsiPesan?>(
+                        future: _isi,
+                        builder: (context, snap) {
+                          if (snap.connectionState != ConnectionState.done) {
+                            return Text('…', style: TextStyle(color: fg));
+                          }
+                          final isi = snap.data;
+                          if (isi == null) {
+                            return Text(
+                              'Pesan tidak bisa dibuka',
+                              style: TextStyle(color: fg, fontStyle: FontStyle.italic),
+                            );
+                          }
+                          return _isiPesan(context, isi, fg);
+                        },
+                      ),
+                    const SizedBox(height: 2),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.block, size: 16, color: fg.withValues(alpha: 0.7)),
-                        const SizedBox(width: 6),
                         Text(
-                          isMine ? 'Kamu menarik pesan ini' : 'Pesan ini ditarik',
-                          style: TextStyle(color: fg.withValues(alpha: 0.7), fontStyle: FontStyle.italic),
+                          formatChatTime(m.createdAt ?? DateTime.now()),
+                          style: theme.textTheme.labelSmall?.copyWith(color: fg.withValues(alpha: 0.7)),
                         ),
+                        if (isMine && !m.ditarik) ...[
+                          const SizedBox(width: 4),
+                          Icon(
+                            m.pending
+                                ? Icons.schedule
+                                : widget.dibaca
+                                    ? Icons.done_all
+                                    : Icons.check,
+                            size: 15,
+                            color: widget.dibaca ? const Color(0xFF0EA5E9) : fg.withValues(alpha: 0.7),
+                          ),
+                        ],
                       ],
-                    )
-                  else
-                    FutureBuilder<IsiPesan?>(
-                      future: _isi,
-                      builder: (context, snap) {
-                        if (snap.connectionState != ConnectionState.done) {
-                          return Text('…', style: TextStyle(color: fg));
-                        }
-                        final isi = snap.data;
-                        if (isi == null) {
-                          return Text(
-                            'Pesan tidak bisa dibuka',
-                            style: TextStyle(color: fg, fontStyle: FontStyle.italic),
-                          );
-                        }
-                        return _isiPesan(context, isi, fg);
-                      },
                     ),
-                  const SizedBox(height: 2),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        formatChatTime(m.createdAt ?? DateTime.now()),
-                        style: theme.textTheme.labelSmall?.copyWith(color: fg.withValues(alpha: 0.7)),
-                      ),
-                      if (isMine && !m.ditarik) ...[
-                        const SizedBox(width: 4),
-                        Icon(
-                          m.pending
-                              ? Icons.schedule
-                              : widget.dibaca
-                                  ? Icons.done_all
-                                  : Icons.check,
-                          size: 15,
-                          color: widget.dibaca ? const Color(0xFF0EA5E9) : fg.withValues(alpha: 0.7),
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -958,6 +1108,43 @@ class _BubbleState extends State<_Bubble> {
       case MessageKind.suara:
         return SuaraChat(chatId: widget.room.id, berkas: isi.berkas!, roomKey: widget.roomKey, fg: fg);
     }
+  }
+}
+
+/// Kutipan pesan yang dibalas (di dalam gelembung dan di atas kolom ketik).
+class KutipanBalasan extends StatelessWidget {
+  const KutipanBalasan({super.key, required this.balas, required this.me, this.warnaTeks});
+  final BalasanPesan balas;
+  final String me;
+  final Color? warnaTeks;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final fg = warnaTeks ?? theme.colorScheme.onSurface;
+    final gayaNama =
+        theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.w700);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+      decoration: BoxDecoration(
+        color: fg.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(8),
+        border: Border(left: BorderSide(color: theme.colorScheme.primary, width: 3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          balas.dari == me ? Text('Kamu', style: gayaNama) : UserName(uid: balas.dari, style: gayaNama),
+          Text(
+            balas.ringkas,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(color: fg.withValues(alpha: 0.8)),
+          ),
+        ],
+      ),
+    );
   }
 }
 

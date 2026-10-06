@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import '../../models/app_user.dart';
 import '../../services/chat_settings.dart';
 import '../../services/notifikasi_service.dart';
+import '../../services/pengaturan_notif.dart';
 import '../../services/presence_service.dart';
+import '../../services/push_service.dart';
 import '../chat/chat_widgets.dart';
+import 'suara_notif_screen.dart';
 
 /// Pengaturan chat & privasi: notifikasi pesan, status online, tanda dibaca.
 class PengaturanChatScreen extends StatelessWidget {
@@ -66,8 +69,10 @@ class _PengaturanChatBagianState extends State<PengaturanChatBagian> {
           SwitchListTile(
             secondary: const Icon(Icons.notifications_active_outlined),
             title: const Text('Notifikasi pesan masuk'),
-            subtitle: const Text(
-              'Muncul saat ada pesan baru. Jika aplikasi ditutup, pesan dicek sekitar tiap 15 menit.',
+            subtitle: Text(
+              PushService.aktif
+                  ? 'Muncul saat ada pesan baru, juga saat aplikasi ditutup.'
+                  : 'Muncul saat ada pesan baru. Jika aplikasi ditutup, pesan dicek sekitar tiap 15 menit.',
             ),
             value: _notif ?? true,
             onChanged: _notif == null
@@ -77,6 +82,24 @@ class _PengaturanChatBagianState extends State<PengaturanChatBagian> {
                       await ChatSettings.setNotif(v);
                       if (v) await NotifikasiService.instance.mintaIzin();
                     }),
+          ),
+          ListTile(
+            leading: const Icon(Icons.music_note_outlined),
+            title: const Text('Suara & durasi notifikasi pesan'),
+            subtitle: const Text('Nada bawaan atau pilih sendiri, getar, lama bunyi'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => const SuaraNotifScreen(jenis: JenisNotif.chat),
+            )),
+          ),
+          ListTile(
+            leading: const Icon(Icons.alarm_outlined),
+            title: const Text('Suara & durasi pengingat tugas'),
+            subtitle: const Text('Untuk pengingat deadline'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => const SuaraNotifScreen(jenis: JenisNotif.tugas),
+            )),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),

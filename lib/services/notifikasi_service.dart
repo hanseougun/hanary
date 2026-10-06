@@ -9,6 +9,8 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../models/tugas.dart';
 import 'jadwal_pengingat.dart';
+import 'panggilan_service.dart';
+import 'pengaturan_notif.dart';
 
 /// Notifikasi pengingat tugas yang dijadwalkan di HP (tidak butuh internet).
 /// Selama tugas belum Selesai: tiap hari jam 12.00 dan 18.00, lalu 1 jam,
@@ -19,32 +21,43 @@ class NotifikasiService {
   static final instance = NotifikasiService._();
 
   static const _prefix = 'tugas:';
-  static const _detail = NotificationDetails(
-    android: AndroidNotificationDetails(
-      'deadline_tugas',
-      'Pengingat deadline',
-      channelDescription: 'Pengingat harian dan menjelang deadline tugas',
-      importance: Importance.high,
-      priority: Priority.high,
-      category: AndroidNotificationCategory.reminder,
-    ),
-  );
+  static const _prefixPanggilan = 'panggilan:';
 
-  static const _detailChat = NotificationDetails(
-    android: AndroidNotificationDetails(
-      'pesan_chat',
-      'Pesan chat',
-      channelDescription: 'Pesan baru dari teman dan grup',
-      importance: Importance.high,
-      priority: Priority.high,
-      category: AndroidNotificationCategory.message,
-    ),
-  );
+  /// Bendera Android FLAG_INSISTENT: suara diulang sampai notifikasi dilihat.
+  static const _flagBerulang = 4;
+
+  /// Detail notifikasi sesuai setelan suara/getar/durasi pilihan pengguna
+  /// (lihat Pengaturan → Suara notifikasi).
+  static Future<NotificationDetails> detailUntuk(
+    JenisNotif jenis, {
+    StyleInformation? gaya,
+  }) async {
+    final s = await PengaturanNotif.baca(jenis);
+    return NotificationDetails(
+      android: AndroidNotificationDetails(
+        s.saluran(jenis),
+        jenis.namaSaluran,
+        channelDescription: jenis.deskripsi,
+        importance: Importance.high,
+        priority: Priority.high,
+        category: jenis == JenisNotif.chat ? AndroidNotificationCategory.message : AndroidNotificationCategory.reminder,
+        playSound: s.suara != SetelanNotif.suaraSenyap,
+        sound: s.nadaSendiri ? UriAndroidNotificationSound(s.suara) : null,
+        enableVibration: s.getar,
+        additionalFlags: s.berulang ? Int32List.fromList([_flagBerulang]) : null,
+        timeoutAfter: s.tampilMenit > 0 ? s.tampilMenit * 60 * 1000 : null,
+        styleInformation: gaya,
+      ),
+    );
+  }
 
   final _plugin = FlutterLocalNotificationsPlugin();
 
   /// Id chat dari notifikasi yang baru saja diketuk (untuk dibuka).
   final ketukChat = ValueNotifier<String?>(null);
+
+  /// Panggilan masuk yang diketuk/diterima dari notifikasi: (id panggilan, terima?).
+  final ketukPanggilan = ValueNotifier<(String, bool)?>(null);
   bool _siap = false;
   bool _tepat = false;
   Future<void> _antrean = Future.value();
@@ -63,7 +76,8 @@ class NotifikasiService {
         settings: const InitializationSettings(
           android: AndroidInitializationSettings('@mipmap/ic_launcher'),
         ),
-        onDidReceiveNotificationResponse: (r) => _diketuk(r.payload),
+        onDidReceiveNotificationResponse: (r) => _diketuk(r.payload, r.actionId),
+        onDidReceiveBackgroundNotificationResponse: notifikasiDiketukLatar,
       );
       _siap = true;
       _tepat = await _android?.canScheduleExactNotifications() ?? false;
@@ -78,17 +92,84 @@ class NotifikasiService {
       });
       final awal = await _plugin.getNotificationAppLaunchDetails();
       if (awal?.didNotificationLaunchApp ?? false) {
-        _diketuk(awal!.notificationResponse?.payload);
+        _diketuk(awal!.notificationResponse?.payload, awal.notificationResponse?.actionId);
       }
     } catch (e) {
       debugPrint('Notifikasi tidak bisa disiapkan: $e');
     }
   }
 
-  void _diketuk(String? payload) {
-    if (payload != null && payload.startsWith(_prefixChat)) {
+  void _diketuk(String? payload, [String? aksi]) {
+    if (payload == null) return;
+    if (payload.startsWith(_prefixChat)) {
       ketukChat.value = payload.substring(_prefixChat.length);
+    } else if (payload.startsWith(_prefixPanggilan)) {
+      final id = payload.substring(_prefixPanggilan.length);
+      if (aksi == aksiTolak) {
+        tolakPanggilanLatar(id);
+      } else {
+        ketukPanggilan.value = (id, aksi == aksiTerima);
+      }
     }
+  }
+
+  static const aksiTerima = 'terima';
+  static const aksiTolak = 'tolak';
+
+  /// Notifikasi panggilan masuk: berdering terus (nada dering HP) dengan
+  /// tombol Terima/Tolak, dan muncul layar penuh saat HP terkunci.
+  Future<void> tampilkanPanggilan({
+    required String callId,
+    required String judul,
+    required bool video,
+  }) async {
+    if (!_siap) return;
+    await _plugin.show(
+      id: idNotifikasi('$_prefixPanggilan$callId'),
+      title: judul,
+      body: video ? 'Panggilan video masuk' : 'Panggilan suara masuk',
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          'panggilan_masuk',
+          'Panggilan masuk',
+          channelDescription: 'Panggilan suara dan video dari teman dan grup',
+          importance: Importance.max,
+          priority: Priority.max,
+          category: AndroidNotificationCategory.call,
+          fullScreenIntent: true,
+          ongoing: true,
+          autoCancel: false,
+          sound: const UriAndroidNotificationSound('content://settings/system/ringtone'),
+          audioAttributesUsage: AudioAttributesUsage.notificationRingtone,
+          additionalFlags: Int32List.fromList([_flagBerulang]),
+          timeoutAfter: 45000,
+          actions: const [
+            AndroidNotificationAction(aksiTolak, 'Tolak', titleColor: Color(0xFFDC2626)),
+            AndroidNotificationAction(aksiTerima, 'Terima', titleColor: Color(0xFF16A34A), showsUserInterface: true),
+          ],
+        ),
+      ),
+      payload: '$_prefixPanggilan$callId',
+    );
+  }
+
+  Future<void> hapusPanggilan(String callId) async {
+    if (!_siap) return;
+    await _plugin.cancel(id: idNotifikasi('$_prefixPanggilan$callId'));
+  }
+
+  /// Dipanggil setelah setelan suara diubah: saluran lama dihapus, dan
+  /// pengingat tugas dijadwalkan ulang dengan suara baru.
+  Future<void> terapkanSetelan(JenisNotif jenis) async {
+    if (!_siap) return;
+    final sekarang = (await PengaturanNotif.baca(jenis)).saluran(jenis);
+    final semua = await _android?.getNotificationChannels() ?? const [];
+    for (final c in semua) {
+      if (c.id != sekarang && (c.id == jenis.saluranDasar || c.id.startsWith('${jenis.saluranDasar}_'))) {
+        await _android?.deleteNotificationChannel(channelId: c.id);
+      }
+    }
+    if (jenis == JenisNotif.tugas) await jadwalUlang();
   }
 
   static const _prefixChat = 'chat:';
@@ -101,7 +182,7 @@ class NotifikasiService {
       id: idNotifikasi('$_prefixChat$chatId'),
       title: judul,
       body: isi,
-      notificationDetails: _detailChat,
+      notificationDetails: await detailUntuk(JenisNotif.chat),
       payload: '$_prefixChat$chatId',
     );
   }
@@ -179,13 +260,14 @@ class NotifikasiService {
     }
 
     final tepat = _tepat = await _android?.canScheduleExactNotifications() ?? false;
+    final detailBiasa = await detailUntuk(JenisNotif.tugas);
     final jam = DateFormat('HH:mm', 'id_ID');
     final tanggal = DateFormat('EEEE, d MMM, HH:mm', 'id_ID');
     for (final p in hitungPengingat(semua, sekarang)) {
       final t = p.tugas.first;
       String judul;
       String isi;
-      var detail = _detail;
+      var detail = detailBiasa;
       switch (p.jenis) {
         case JenisPengingat.menjelang:
           final lagi = p.menitSebelum >= 60 ? '${p.menitSebelum ~/ 60} jam' : '${p.menitSebelum} menit';
@@ -211,18 +293,11 @@ class NotifikasiService {
             final daftar = p.tugas.map(baris).toList();
             judul = '${p.tugas.length} tugas belum selesai';
             isi = daftar.join('\n');
-            detail = NotificationDetails(
-              android: AndroidNotificationDetails(
-                'deadline_tugas',
-                'Pengingat deadline',
-                channelDescription: 'Pengingat harian dan menjelang deadline tugas',
-                importance: Importance.high,
-                priority: Priority.high,
-                category: AndroidNotificationCategory.reminder,
-                styleInformation: InboxStyleInformation(
-                  daftar.take(6).toList(),
-                  summaryText: daftar.length > 6 ? '+${daftar.length - 6} tugas lagi' : null,
-                ),
+            detail = await detailUntuk(
+              JenisNotif.tugas,
+              gaya: InboxStyleInformation(
+                daftar.take(6).toList(),
+                summaryText: daftar.length > 6 ? '+${daftar.length - 6} tugas lagi' : null,
               ),
             );
           }
@@ -252,5 +327,15 @@ class NotifikasiService {
       hash = ((hash ^ c) * 0x01000193) & 0x7fffffff;
     }
     return hash;
+  }
+}
+
+/// Tombol notifikasi yang ditekan saat aplikasi tertutup (mis. "Tolak"
+/// panggilan). Dijalankan Android di latar belakang.
+@pragma('vm:entry-point')
+void notifikasiDiketukLatar(NotificationResponse r) {
+  final payload = r.payload ?? '';
+  if (r.actionId == NotifikasiService.aksiTolak && payload.startsWith('panggilan:')) {
+    tolakPanggilanLatar(payload.substring('panggilan:'.length));
   }
 }

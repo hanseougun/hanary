@@ -3,7 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'chat_notifier.dart';
+import 'panggilan_service.dart';
 import 'presence_service.dart';
+import 'push_service.dart';
 
 /// Login dan logout dengan akun Google melalui Firebase Auth.
 class AuthService {
@@ -43,14 +45,16 @@ class AuthService {
   /// akun yang sedang login. Bisa memunculkan layar persetujuan sekali.
   Future<Map<String, String>> googleHeaders(List<String> scopes) async {
     await _ensureGoogleReady();
-    final headers = await GoogleSignIn.instance.authorizationClient
-        .authorizationHeaders(scopes, promptIfNecessary: true);
+    final headers =
+        await GoogleSignIn.instance.authorizationClient.authorizationHeaders(scopes, promptIfNecessary: true);
     if (headers == null) throw StateError('Izin Google tidak diberikan');
     return headers;
   }
 
   Future<void> signOut() async {
     ChatNotifier.instance.stop();
+    PanggilanService.instance.berhenti();
+    await PushService.instance.berhenti();
     await PresenceService.instance.stop();
     if (!kIsWeb) {
       await _ensureGoogleReady();

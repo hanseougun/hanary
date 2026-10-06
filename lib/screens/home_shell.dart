@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import '../models/app_user.dart';
 import '../services/chat_notifier.dart';
 import '../services/notifikasi_service.dart';
+import '../services/panggilan_service.dart';
 import '../services/presence_service.dart';
+import '../services/push_service.dart';
 import '../widgets/hanary_widgets.dart';
 import 'beranda_screen.dart';
 import 'chat/chat_room_screen.dart';
+import 'chat/panggilan_screen.dart';
 import 'chat_screen.dart';
 import 'profile_screen.dart';
 
@@ -39,8 +42,45 @@ class _HomeShellState extends State<HomeShell> with SingleTickerProviderStateMix
     super.initState();
     PresenceService.instance.start(widget.user.uid, tampil: widget.user.tampilOnline);
     ChatNotifier.instance.start(widget.user.uid);
+    PushService.instance.mulai(widget.user.uid);
+    PanggilanService.instance.mulai(widget.user.uid);
     NotifikasiService.instance.ketukChat.addListener(_bukaChatDariNotifikasi);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _bukaChatDariNotifikasi());
+    NotifikasiService.instance.ketukPanggilan.addListener(_bukaPanggilanDariNotifikasi);
+    PanggilanService.instance.masuk.addListener(_panggilanMasuk);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _bukaChatDariNotifikasi();
+      _bukaPanggilanDariNotifikasi();
+    });
+  }
+
+  /// Ada yang menelepon saat aplikasi terbuka.
+  void _panggilanMasuk() {
+    final p = PanggilanService.instance.masuk.value;
+    if (p == null || !mounted) return;
+    PanggilanService.instance.masuk.value = null;
+    bukaPanggilanMasuk(Navigator.of(context), p, widget.user.uid);
+  }
+
+  /// Notifikasi panggilan diketuk (atau tombol "Terima" ditekan).
+  Future<void> _bukaPanggilanDariNotifikasi() async {
+    final ketuk = NotifikasiService.instance.ketukPanggilan.value;
+    if (ketuk == null || !mounted) return;
+    final (callId, terima) = ketuk;
+    // Layar panggilan masuk sudah terbuka: biar layar itu yang menanganinya.
+    if (PanggilanService.instance.sedangDibuka == callId) return;
+    NotifikasiService.instance.ketukPanggilan.value = null;
+    final nav = Navigator.of(context);
+    try {
+      final p = await PanggilanService.instance.ambil(callId);
+      if (p == null || !p.bisaDiangkat(widget.user.uid)) {
+        await NotifikasiService.instance.hapusPanggilan(callId);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Panggilan sudah berakhir.')));
+        }
+        return;
+      }
+      await bukaPanggilanMasuk(nav, p, widget.user.uid, langsungTerima: terima);
+    } catch (_) {}
   }
 
   @override
@@ -52,6 +92,8 @@ class _HomeShellState extends State<HomeShell> with SingleTickerProviderStateMix
   @override
   void dispose() {
     NotifikasiService.instance.ketukChat.removeListener(_bukaChatDariNotifikasi);
+    NotifikasiService.instance.ketukPanggilan.removeListener(_bukaPanggilanDariNotifikasi);
+    PanggilanService.instance.masuk.removeListener(_panggilanMasuk);
     _pudar.dispose();
     _masuk.dispose();
     super.dispose();

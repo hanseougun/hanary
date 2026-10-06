@@ -19,9 +19,11 @@ import 'user_directory.dart';
 ///
 /// - Saat aplikasi dibuka atau masih berjalan di belakang: memantau daftar
 ///   chat secara langsung.
-/// - Saat aplikasi ditutup: Android menjalankan [chatCallbackDispatcher]
-///   kira-kira setiap 15 menit untuk memeriksa pesan baru. Pemeriksaan ini
-///   hanya membaca satu dokumen `inbox/{uid}` kecuali memang ada pesan baru.
+/// - Saat aplikasi ditutup: HP pengirim membangunkan HP ini lewat FCM
+///   (lihat `PushService`), lalu [cekSekali] menampilkan pesannya.
+/// - Cadangan: Android menjalankan [chatCallbackDispatcher] kira-kira setiap
+///   15 menit untuk memeriksa pesan baru. Pemeriksaan ini hanya membaca satu
+///   dokumen `inbox/{uid}` kecuali memang ada pesan baru.
 class ChatNotifier {
   ChatNotifier._();
   static final instance = ChatNotifier._();
@@ -69,18 +71,20 @@ class ChatNotifier {
   }
 
   /// Pemeriksaan sekali jalan (dipakai di latar belakang).
-  Future<void> cekSekali(String uid) async {
+  /// [paksa]: dibangunkan notifikasi instan, jadi pasti ada pesan baru;
+  /// tidak perlu memeriksa `inbox` dulu.
+  Future<void> cekSekali(String uid, {bool paksa = false}) async {
     if (!await ChatSettings.notifAktif()) return;
     final prefs = await SharedPreferences.getInstance();
     final terakhir = prefs.getInt(_kunci(uid));
     final db = FirebaseFirestore.instance;
-    final inbox = await db.collection('inbox').doc(uid).get(const GetOptions(source: Source.server));
-    final at = (inbox.data()?['at'] as Timestamp?)?.millisecondsSinceEpoch;
-    if (terakhir != null && (at == null || at <= terakhir)) return;
-    final snap = await db
-        .collection('chats')
-        .where('members', arrayContains: uid)
-        .get(const GetOptions(source: Source.server));
+    if (!paksa) {
+      final inbox = await db.collection('inbox').doc(uid).get(const GetOptions(source: Source.server));
+      final at = (inbox.data()?['at'] as Timestamp?)?.millisecondsSinceEpoch;
+      if (terakhir != null && (at == null || at <= terakhir)) return;
+    }
+    final snap =
+        await db.collection('chats').where('members', arrayContains: uid).get(const GetOptions(source: Source.server));
     await _proses(uid, snap.docs.map(ChatRoom.fromSnapshot).toList());
   }
 
@@ -119,9 +123,8 @@ class ChatNotifier {
 
   Future<void> _tampilkan(String uid, ChatRoom room) async {
     final pengirim = await UserDirectory.instance.get(room.lastSender!);
-    final nama = pengirim == null
-        ? 'Seseorang'
-        : (pengirim.sebutan.isNotEmpty ? pengirim.sebutan : pengirim.namaLengkap);
+    final nama =
+        pengirim == null ? 'Seseorang' : (pengirim.sebutan.isNotEmpty ? pengirim.sebutan : pengirim.namaLengkap);
     var isi = 'Pesan baru';
     try {
       final key = await ChatRepository.instance.roomKey(room, uid).timeout(const Duration(seconds: 10));
@@ -129,8 +132,7 @@ class ChatNotifier {
       if (room.lastKind == lastKindDitarik) {
         isi = 'Pesan ditarik';
       } else if (key != null && box != null) {
-        final pesan = await ChatRepository.instance
-            .decryptIsi(room.id, MessageKind.dari(room.lastKind), box, key);
+        final pesan = await ChatRepository.instance.decryptIsi(room.id, MessageKind.dari(room.lastKind), box, key);
         if (pesan != null) isi = pesan.ringkas();
       }
     } catch (_) {

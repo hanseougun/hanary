@@ -1,7 +1,11 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/widgets.dart';
 import 'package:image_picker/image_picker.dart';
+
+import 'edit_gambar.dart';
 
 /// Foto profil dan foto grup yang diunggah sendiri.
 ///
@@ -31,16 +35,14 @@ class AvatarService {
     });
   }
 
-  /// Memilih foto dari galeri dan memperkecilnya. Null jika batal.
-  Future<Uint8List?> pilihFoto() async {
-    final foto = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 512,
-      maxHeight: 512,
-      imageQuality: 80,
-    );
-    if (foto == null) return null;
-    final bytes = await foto.readAsBytes();
+  /// Memilih foto dari galeri, lalu memotongnya (bulat, 1:1) dan
+  /// memperkecilnya. Null jika batal.
+  Future<Uint8List?> pilihFoto(BuildContext context) async {
+    final foto = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 2048, maxHeight: 2048);
+    if (foto == null || !context.mounted) return null;
+    final path = await editGambar(context, foto.path, persegi: true, maksSisi: 512);
+    if (path == null) return null;
+    final bytes = await File(path).readAsBytes();
     if (bytes.length > 400 * 1024) throw StateError('Foto terlalu besar, coba foto lain.');
     return bytes;
   }

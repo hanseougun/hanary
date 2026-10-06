@@ -6,6 +6,7 @@ import '../services/avatar_service.dart';
 import '../theme/hanary_theme.dart';
 import '../widgets/hanary_widgets.dart';
 import 'chat/chat_widgets.dart';
+import 'chat/lihat_foto.dart';
 import 'pengaturan_screen.dart';
 import 'profile_form_screen.dart';
 
@@ -35,6 +36,12 @@ class ProfileScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (user.fotoVer != null || user.fotoUrl != null)
+              ListTile(
+                leading: const Icon(Icons.fullscreen_rounded),
+                title: const Text('Lihat foto'),
+                onTap: () => Navigator.pop(ctx, 'lihat'),
+              ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
               title: const Text('Pilih foto dari galeri'),
@@ -50,13 +57,17 @@ class ProfileScreen extends StatelessWidget {
         ),
       ),
     );
-    if (pilihan == null) return;
+    if (pilihan == null || !context.mounted) return;
+    if (pilihan == 'lihat') {
+      lihatFotoUser(context, user.uid);
+      return;
+    }
     try {
       if (pilihan == 'hapus') {
         await AvatarService.instance.hapusFotoUser(user.uid);
         return;
       }
-      final foto = await AvatarService.instance.pilihFoto();
+      final foto = await AvatarService.instance.pilihFoto(context);
       if (foto == null) return;
       await AvatarService.instance.simpanFotoUser(user.uid, foto);
       if (context.mounted) {
