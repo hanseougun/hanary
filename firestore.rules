@@ -16,9 +16,18 @@ service cloud.firestore {
 
     // Profil: semua pengguna yang login boleh membaca (untuk mencari teman),
     // tetapi hanya pemiliknya yang boleh membuat/mengubah.
+    // Username di profil harus sama dengan yang sudah saya pesan di
+    // usernames/{username} (atau tidak berubah / kosong).
+    function usernameSah(uid) {
+      let u = request.resource.data.get('username', '');
+      return u == '' ||
+        (resource != null && u == resource.data.get('username', '')) ||
+        getAfter(/databases/$(database)/documents/usernames/$(u)).data.uid == uid;
+    }
+
     match /users/{uid} {
       allow read: if signedIn();
-      allow create, update: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid && usernameSah(uid);
       allow delete: if false;
 
       // Daftar teman. Ditulis untuk kedua pihak saat permintaan diterima.
@@ -32,6 +41,17 @@ service cloud.firestore {
           exists(/databases/$(database)/documents/friendRequests/$(uid + '_' + otherUid));
         allow delete: if signedIn() && (request.auth.uid == uid || request.auth.uid == otherUid);
       }
+    }
+
+    // Username unik: siapa yang memesan pertama, dia pemiliknya.
+    match /usernames/{name} {
+      allow read: if signedIn();
+      allow create: if signedIn() &&
+        name.matches('^[a-z0-9._]{3,20}$') &&
+        request.resource.data.keys().hasOnly(['uid']) &&
+        request.resource.data.uid == request.auth.uid;
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+      allow update: if false;
     }
 
     // Permintaan pertemanan: id dokumen = {dari}_{ke}.

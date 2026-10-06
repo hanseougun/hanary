@@ -34,7 +34,30 @@ class UserRepository {
     });
   }
 
-  Future<void> save(AppUser user) {
-    return _users.doc(user.uid).set(user.toMap(), SetOptions(merge: true));
+  /// Menyimpan profil. Jika username berubah, username baru "dipesan" di
+  /// `usernames/{username}` agar tidak bisa dipakai orang lain, dan yang
+  /// lama dilepas.
+  Future<void> save(AppUser user) async {
+    final db = FirebaseFirestore.instance;
+    final ref = _users.doc(user.uid);
+    final baru = user.username;
+    await db.runTransaction((tx) async {
+      final lama = (await tx.get(ref)).data()?['username'] as String? ?? '';
+      if (baru.isNotEmpty && baru != lama) {
+        final klaim = await tx.get(db.collection('usernames').doc(baru));
+        if (klaim.exists && klaim.data()?['uid'] != user.uid) throw const UsernameDipakai();
+        if (!klaim.exists) tx.set(klaim.reference, {'uid': user.uid});
+        if (lama.isNotEmpty) tx.delete(db.collection('usernames').doc(lama));
+      }
+      tx.set(ref, user.toMap(), SetOptions(merge: true));
+    });
   }
+}
+
+/// Username sudah dipakai orang lain.
+class UsernameDipakai implements Exception {
+  const UsernameDipakai();
+
+  @override
+  String toString() => 'Username ini sudah dipakai orang lain. Coba yang lain.';
 }

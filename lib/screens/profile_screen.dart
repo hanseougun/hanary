@@ -183,8 +183,23 @@ class ProfileScreen extends StatelessWidget {
               child: Column(
                 children: [
                   _InfoTile(icon: Icons.badge_outlined, label: 'Nama lengkap', value: user.namaLengkap),
-                  _InfoTile(icon: Icons.school_outlined, label: 'Sekolah / kampus', value: user.sekolah),
-                  _InfoTile(icon: Icons.class_outlined, label: 'Kelas / jurusan', value: user.kelas),
+                  _InfoTile(
+                    icon: Icons.alternate_email_rounded,
+                    label: 'Username',
+                    value: user.username.isEmpty ? '' : '@${user.username}',
+                  ),
+                  if (user.peran != null)
+                    _InfoTile(icon: Icons.interests_outlined, label: 'Kegiatan', value: user.peran!.label),
+                  _InfoTile(
+                    icon: user.peran == Peran.pekerja ? Icons.business_outlined : Icons.school_outlined,
+                    label: user.labelTempat,
+                    value: user.sekolah,
+                  ),
+                  _InfoTile(
+                    icon: user.peran == Peran.pekerja ? Icons.work_outline_rounded : Icons.class_outlined,
+                    label: user.labelPosisi,
+                    value: user.kelas,
+                  ),
                 ],
               ),
             ),

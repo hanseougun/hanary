@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/app_user.dart';
 import '../services/auth_service.dart';
@@ -20,6 +21,8 @@ class _ProfileFormScreenState extends State<ProfileFormScreen> {
   final _formKey = GlobalKey<FormState>();
   late final _nama = TextEditingController(text: widget.user.namaLengkap);
   late final _sebutan = TextEditingController(text: widget.user.sebutan);
+  late final _username = TextEditingController(text: widget.user.username);
+  late Peran? _peran = widget.user.peran;
   late final _sekolah = TextEditingController(text: widget.user.sekolah);
   late final _kelas = TextEditingController(text: widget.user.kelas);
   late final _bio = TextEditingController(text: widget.user.bio);
@@ -27,7 +30,7 @@ class _ProfileFormScreenState extends State<ProfileFormScreen> {
 
   @override
   void dispose() {
-    for (final c in [_nama, _sebutan, _sekolah, _kelas, _bio]) {
+    for (final c in [_nama, _sebutan, _username, _sekolah, _kelas, _bio]) {
       c.dispose();
     }
     super.dispose();
@@ -40,6 +43,8 @@ class _ProfileFormScreenState extends State<ProfileFormScreen> {
       await UserRepository.instance.save(widget.user.copyWith(
         namaLengkap: _nama.text,
         sebutan: _sebutan.text,
+        username: _username.text.trim().toLowerCase(),
+        peran: _peran,
         sekolah: _sekolah.text,
         kelas: _kelas.text,
         bio: _bio.text,
@@ -54,7 +59,7 @@ class _ProfileFormScreenState extends State<ProfileFormScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal menyimpan: $e')),
+        SnackBar(content: Text(e is UsernameDipakai ? e.toString() : 'Gagal menyimpan: $e')),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -63,6 +68,14 @@ class _ProfileFormScreenState extends State<ProfileFormScreen> {
 
   String? _required(String? v) =>
       (v == null || v.trim().isEmpty) ? 'Wajib diisi' : null;
+
+  String? _cekUsername(String? v) {
+    final u = (v ?? '').trim().toLowerCase();
+    if (u.isEmpty) return 'Wajib diisi, dipakai teman untuk mencarimu';
+    if (u.length < 3) return 'Minimal 3 huruf';
+    if (!polaUsername.hasMatch(u)) return 'Hanya huruf kecil, angka, titik (.), dan garis bawah (_)';
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,15 +112,48 @@ class _ProfileFormScreenState extends State<ProfileFormScreen> {
                 validator: _required,
               ),
               _Isian(
+                controller: _username,
+                label: 'Username',
+                icon: Icons.alternate_email_rounded,
+                awalan: '@',
+                maxLength: 20,
+                validator: _cekUsername,
+                bantuan: 'Teman mencarimu dengan username ini. Harus unik.',
+                format: [
+                  FilteringTextInputFormatter.allow(RegExp('[a-zA-Z0-9._]')),
+                  _HurufKecil(),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text('Kegiatan', style: Theme.of(context).textTheme.titleSmall),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final p in Peran.values)
+                      ChoiceChip(
+                        label: Text(p.label),
+                        selected: _peran == p,
+                        onSelected: (_) => setState(() => _peran = p),
+                      ),
+                  ],
+                ),
+              ),
+              _Isian(
                 controller: _sekolah,
-                label: 'Sekolah / kampus',
-                icon: Icons.school_outlined,
+                label: _peran?.labelTempat ?? 'Sekolah / kampus / perusahaan',
+                icon: _peran == Peran.pekerja ? Icons.business_outlined : Icons.school_outlined,
                 kapital: TextCapitalization.words,
               ),
               _Isian(
                 controller: _kelas,
-                label: 'Kelas / jurusan',
-                icon: Icons.class_outlined,
+                label: _peran?.labelPosisi ?? 'Kelas / jurusan / jabatan',
+                icon: _peran == Peran.pekerja ? Icons.work_outline_rounded : Icons.class_outlined,
+                kapital: _peran == Peran.pekerja ? TextCapitalization.words : TextCapitalization.none,
               ),
               _Isian(
                 controller: _bio,
@@ -148,6 +194,9 @@ class _Isian extends StatelessWidget {
     this.maxLength,
     this.maxLines = 1,
     this.terakhir = false,
+    this.awalan,
+    this.bantuan,
+    this.format,
   });
 
   final TextEditingController controller;
@@ -158,6 +207,9 @@ class _Isian extends StatelessWidget {
   final int? maxLength;
   final int maxLines;
   final bool terakhir;
+  final String? awalan;
+  final String? bantuan;
+  final List<TextInputFormatter>? format;
 
   @override
   Widget build(BuildContext context) {
@@ -167,6 +219,8 @@ class _Isian extends StatelessWidget {
         controller: controller,
         decoration: InputDecoration(
           labelText: label,
+          prefixText: awalan,
+          helperText: bantuan,
           prefixIcon: maxLines > 1
               ? Padding(padding: const EdgeInsets.only(bottom: 44), child: Icon(icon))
               : Icon(icon),
@@ -181,7 +235,16 @@ class _Isian extends StatelessWidget {
             ? null
             : (context, {required currentLength, required isFocused, required maxLength}) => null,
         validator: validator,
+        inputFormatters: format,
+        autocorrect: format == null,
       ),
     );
   }
+}
+
+/// Mengubah ketikan menjadi huruf kecil (untuk username).
+class _HurufKecil extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) =>
+      newValue.copyWith(text: newValue.text.toLowerCase());
 }

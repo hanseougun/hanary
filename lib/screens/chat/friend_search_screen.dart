@@ -76,7 +76,7 @@ class _FriendSearchScreenState extends State<FriendSearchScreen> {
               textInputAction: TextInputAction.search,
               onSubmitted: (_) => _search(),
               decoration: InputDecoration(
-                labelText: 'Sebutan atau email teman',
+                labelText: 'Username, sebutan, atau email teman',
                 suffixIcon: IconButton(icon: const Icon(Icons.search), onPressed: _search),
               ),
             ),
@@ -118,7 +118,9 @@ class _FriendSearchScreenState extends State<FriendSearchScreen> {
                                       ),
                                       title: Text(u.sebutan.isNotEmpty ? u.sebutan : u.namaLengkap),
                                       subtitle: Text(
-                                        [u.namaLengkap, u.sekolah].where((s) => s.isNotEmpty).join(' · '),
+                                        [if (u.username.isNotEmpty) '@${u.username}', u.namaLengkap, u.sekolah]
+                                            .where((s) => s.isNotEmpty)
+                                            .join(' · '),
                                       ),
                                       onTap: () => _kirimPesan(u.uid),
                                       trailing: friends.contains(u.uid)

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../models/app_user.dart';
 import '../../theme/hanary_theme.dart';
 import '../../widgets/hanary_widgets.dart';
 import 'chat_widgets.dart';
@@ -97,8 +98,23 @@ class ProfilOrangScreen extends StatelessWidget {
                   child: Column(
                     children: [
                       _Baris(icon: Icons.badge_outlined, label: 'Nama lengkap', nilai: user.namaLengkap),
-                      _Baris(icon: Icons.school_outlined, label: 'Sekolah / kampus', nilai: user.sekolah),
-                      _Baris(icon: Icons.class_outlined, label: 'Kelas / jurusan', nilai: user.kelas),
+                  _Baris(
+                    icon: Icons.alternate_email_rounded,
+                    label: 'Username',
+                    nilai: user.username.isEmpty ? '' : '@${user.username}',
+                  ),
+                  if (user.peran != null)
+                    _Baris(icon: Icons.interests_outlined, label: 'Kegiatan', nilai: user.peran!.label),
+                      _Baris(
+                    icon: user.peran == Peran.pekerja ? Icons.business_outlined : Icons.school_outlined,
+                    label: user.labelTempat,
+                    nilai: user.sekolah,
+                  ),
+                      _Baris(
+                    icon: user.peran == Peran.pekerja ? Icons.work_outline_rounded : Icons.class_outlined,
+                    label: user.labelPosisi,
+                    nilai: user.kelas,
+                  ),
                     ],
                   ),
                 ),
