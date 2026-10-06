@@ -29,6 +29,9 @@ class Panggilan {
     required this.tolak,
     required this.status,
     required this.dibuat,
+    this.pernah = const [],
+    this.mulai,
+    this.selesai,
   });
 
   final String id;
@@ -50,6 +53,24 @@ class Panggilan {
   final StatusPanggilan status;
   final DateTime dibuat;
 
+  /// Semua yang pernah masuk ke panggilan (untuk riwayat).
+  final List<String> pernah;
+
+  /// Kapan panggilan mulai tersambung dan kapan berakhir.
+  final DateTime? mulai;
+  final DateTime? selesai;
+
+  /// Panggilan ini sudah diikuti lebih dari dua orang (diperlakukan seperti grup).
+  bool get ramai => grup || anggota.length > 2;
+
+  /// Lama bicara (null jika tidak pernah tersambung).
+  Duration? get durasi {
+    final m = mulai;
+    final s = selesai;
+    if (m == null || s == null || s.isBefore(m)) return null;
+    return s.difference(m);
+  }
+
   factory Panggilan.dari(DocumentSnapshot<Map<String, dynamic>> s) {
     final d = s.data() ?? const {};
     return Panggilan(
@@ -63,16 +84,22 @@ class Panggilan {
       tolak: List<String>.from(d['tolak'] as List? ?? const []),
       status: StatusPanggilan.values.firstWhere((x) => x.name == d['status'], orElse: () => StatusPanggilan.selesai),
       dibuat: DateTime.fromMillisecondsSinceEpoch((d['dibuatMs'] as num?)?.toInt() ?? 0),
+      pernah: List<String>.from(d['pernah'] as List? ?? const []),
+      mulai: _waktu(d['mulaiMs']),
+      selesai: _waktu(d['selesaiMs']),
     );
   }
 
-  /// Masih bisa diangkat oleh [uid].
-  bool bisaDiangkat(String uid) =>
+  static DateTime? _waktu(Object? ms) => ms is num ? DateTime.fromMillisecondsSinceEpoch(ms.toInt()) : null;
+
+  /// Masih bisa diangkat oleh [uid]. [dipanggil]: kapan dia terakhir
+  /// dipanggil/diajak (bawaan: saat panggilan dimulai).
+  bool bisaDiangkat(String uid, {DateTime? dipanggil}) =>
       status != StatusPanggilan.selesai &&
-      uid != dari &&
+      anggota.contains(uid) &&
       !ikut.contains(uid) &&
       !tolak.contains(uid) &&
-      DateTime.now().difference(dibuat) < PanggilanService.batasBerdering + const Duration(seconds: 15);
+      DateTime.now().difference(dipanggil ?? dibuat) < PanggilanService.batasBerdering + const Duration(seconds: 15);
 }
 
 /// Memulai, menerima, menolak, dan mengakhiri panggilan; serta memantau
@@ -105,11 +132,15 @@ class PanggilanService {
     _uid = uid;
     _sub = _db.collection('panggilanMasuk').doc(uid).snapshots().listen((s) async {
       final callId = s.data()?['callId'] as String?;
-      if (callId == null || _sudah.contains(callId) || callId == sedangDibuka) return;
+      final at = s.data()?['at'];
+      final dipanggil = at is Timestamp ? at.toDate() : null;
+      // Satu panggilan bisa berdering lagi jika diajak ulang (waktu berbeda).
+      final tanda = '$callId|${dipanggil?.millisecondsSinceEpoch}';
+      if (callId == null || _sudah.contains(tanda) || callId == sedangDibuka) return;
       try {
         final p = await ambil(callId);
-        if (p == null || !p.bisaDiangkat(uid)) return;
-        _sudah.add(callId);
+        if (p == null || !p.bisaDiangkat(uid, dipanggil: dipanggil)) return;
+        _sudah.add(tanda);
         masuk.value = p;
       } catch (_) {}
     }, onError: (_) {});
@@ -140,6 +171,7 @@ class PanggilanService {
       'grup': room.isGroup,
       'anggota': room.members,
       'ikut': [me],
+      'pernah': [me],
       'tolak': <String>[],
       'status': StatusPanggilan.berdering.name,
       'dibuatMs': DateTime.now().millisecondsSinceEpoch,
@@ -161,10 +193,93 @@ class PanggilanService {
   }
 
   Future<void> gabung(String callId, String me) {
-    return _koleksi.doc(callId).update({
-      'ikut': FieldValue.arrayUnion([me]),
-      'status': StatusPanggilan.berlangsung.name,
+    return _db.runTransaction((tx) async {
+      final s = await tx.get(_koleksi.doc(callId));
+      if (!s.exists) return;
+      final p = Panggilan.dari(s);
+      tx.update(s.reference, {
+        'ikut': FieldValue.arrayUnion([me]),
+        'pernah': FieldValue.arrayUnion([me]),
+        'status': StatusPanggilan.berlangsung.name,
+        if (p.mulai == null && p.dari != me) 'mulaiMs': DateTime.now().millisecondsSinceEpoch,
+      });
     });
+  }
+
+  /// Mengajak orang lain masuk ke panggilan yang sedang berjalan: teman
+  /// baru, atau anggota chat yang belum mengangkat.
+  Future<void> undang(Panggilan p, String me, String uid) async {
+    final batch = _db.batch();
+    if (!p.anggota.contains(uid)) {
+      batch.update(_koleksi.doc(p.id), {
+        'anggota': FieldValue.arrayUnion([uid]),
+      });
+    }
+    batch.set(_db.collection('panggilanMasuk').doc(uid), {
+      'callId': p.id,
+      'dari': me,
+      'at': FieldValue.serverTimestamp(),
+    });
+    await batch.commit();
+    PushService.instance.beriTahu(chatId: p.chatId, jenis: 'undang', callId: p.id, ke: uid);
+  }
+
+  /// Riwayat panggilan saya (terbaru dulu, maks. 100), tanpa yang sudah
+  /// saya hapus.
+  Stream<List<Panggilan>> riwayat(String me) {
+    final dihapusRef = _db.collection('users').doc(me).collection('riwayatPanggilan');
+    late StreamController<List<Panggilan>> c;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? a;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? b;
+    List<Panggilan>? semua;
+    Set<String>? sembunyi;
+    num? sebelum;
+    void kirim() {
+      final daftar = semua;
+      final h = sembunyi;
+      if (daftar == null || h == null) return;
+      final hasil = daftar
+          .where((p) => !h.contains(p.id) && (sebelum == null || p.dibuat.millisecondsSinceEpoch > sebelum!))
+          .toList()
+        ..sort((x, y) => y.dibuat.compareTo(x.dibuat));
+      c.add(hasil.take(100).toList());
+    }
+
+    c = StreamController<List<Panggilan>>(
+      onListen: () {
+        a = _koleksi.where('anggota', arrayContains: me).snapshots().listen((s) {
+          semua = s.docs.map(Panggilan.dari).toList();
+          kirim();
+        }, onError: c.addError);
+        b = dihapusRef.snapshots().listen((s) {
+          sembunyi = {for (final d in s.docs) d.id};
+          sebelum = s.docs.where((d) => d.id == _semuaDihapus).firstOrNull?.data()['sebelumMs'] as num?;
+          kirim();
+        }, onError: c.addError);
+      },
+      onCancel: () async {
+        await a?.cancel();
+        await b?.cancel();
+      },
+    );
+    return c.stream;
+  }
+
+  static const _semuaDihapus = '_semua';
+
+  /// Menghapus satu panggilan dari riwayat saya.
+  Future<void> hapusRiwayat(String me, String callId) {
+    return _db.collection('users').doc(me).collection('riwayatPanggilan').doc(callId).set({'dihapus': true});
+  }
+
+  /// Menghapus seluruh riwayat panggilan saya.
+  Future<void> hapusSemuaRiwayat(String me) {
+    return _db
+        .collection('users')
+        .doc(me)
+        .collection('riwayatPanggilan')
+        .doc(_semuaDihapus)
+        .set({'sebelumMs': DateTime.now().millisecondsSinceEpoch});
   }
 
   Future<void> tolak(String callId, String me) async {
@@ -176,9 +291,10 @@ class PanggilanService {
       final tolak = {...p.tolak, me};
       // Semua yang dipanggil menolak: panggilan selesai.
       final semuaMenolak = p.anggota.where((u) => u != p.dari).every(tolak.contains);
+      final selesai = semuaMenolak && p.status == StatusPanggilan.berdering;
       tx.update(s.reference, {
         'tolak': FieldValue.arrayUnion([me]),
-        if (semuaMenolak && p.status == StatusPanggilan.berdering) 'status': StatusPanggilan.selesai.name,
+        if (selesai) ...{'status': StatusPanggilan.selesai.name, 'selesaiMs': DateTime.now().millisecondsSinceEpoch},
       });
     });
   }
@@ -192,32 +308,50 @@ class PanggilanService {
       final p = Panggilan.dari(s);
       final sisa = p.ikut.where((u) => u != me).toList();
       final selesai = sisa.isEmpty ||
-          (!p.grup && p.status == StatusPanggilan.berlangsung) ||
+          (!p.ramai && p.status == StatusPanggilan.berlangsung) ||
           (p.dari == me && p.status == StatusPanggilan.berdering);
       tx.update(s.reference, {
         'ikut': FieldValue.arrayRemove([me]),
-        if (selesai) 'status': StatusPanggilan.selesai.name,
+        if (selesai) ...{'status': StatusPanggilan.selesai.name, 'selesaiMs': DateTime.now().millisecondsSinceEpoch},
       });
     });
   }
 
   /// Tidak ada yang mengangkat: panggilan diakhiri.
   Future<void> tidakDijawab(String callId) {
-    return _koleksi.doc(callId).update({'status': StatusPanggilan.selesai.name});
+    return _koleksi.doc(callId).update({
+      'status': StatusPanggilan.selesai.name,
+      'selesaiMs': DateTime.now().millisecondsSinceEpoch,
+    });
   }
 
   /// Dipakai saat HP dibangunkan FCM: tampilkan notifikasi panggilan masuk.
   static Future<void> tampilkanNotifMasuk(String uid, String callId) async {
     final p = await instance.ambil(callId);
-    if (p == null || !p.bisaDiangkat(uid)) return;
-    final pemanggil = await UserDirectory.instance.get(p.dari);
+    // Waktu dipanggil/diajak terakhir (bisa lebih baru dari awal panggilan).
+    DateTime? dipanggil;
+    String? pengajak;
+    try {
+      final ping = await FirebaseFirestore.instance.collection('panggilanMasuk').doc(uid).get();
+      final at = ping.data()?['at'];
+      if (ping.data()?['callId'] == callId && at is Timestamp) {
+        dipanggil = at.toDate();
+        pengajak = ping.data()?['dari'] as String?;
+      }
+    } catch (_) {}
+    if (p == null || !p.bisaDiangkat(uid, dipanggil: dipanggil)) return;
+    final pemanggil = await UserDirectory.instance.get(pengajak ?? p.dari);
     final nama =
         pemanggil == null ? 'Seseorang' : (pemanggil.sebutan.isNotEmpty ? pemanggil.sebutan : pemanggil.namaLengkap);
     var judul = nama;
     if (p.grup) {
-      final chat = await FirebaseFirestore.instance.collection('chats').doc(p.chatId).get();
-      final grup = chat.data()?['name'] as String? ?? 'grup';
-      judul = '$nama · $grup';
+      try {
+        final chat = await FirebaseFirestore.instance.collection('chats').doc(p.chatId).get();
+        final grup = chat.data()?['name'] as String? ?? 'grup';
+        judul = '$nama · $grup';
+      } catch (_) {
+        // Diajak dari luar grup: tidak bisa membaca nama grupnya.
+      }
     }
     await NotifikasiService.instance.tampilkanPanggilan(callId: callId, judul: judul, video: p.video);
   }

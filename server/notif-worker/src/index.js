@@ -59,13 +59,20 @@ async function kirim(request, env) {
     return teks('Data salah', 400);
   }
   const chatId = typeof body.chatId === 'string' ? body.chatId : '';
-  const jenis = body.jenis === 'panggilan' ? 'panggilan' : 'pesan';
+  const jenis = ['panggilan', 'undang'].includes(body.jenis) ? body.jenis : 'pesan';
   const callId = typeof body.callId === 'string' ? body.callId : '';
-  if (!/^[A-Za-z0-9_-]{1,200}$/.test(chatId)) return teks('Data salah', 400);
-  if (jenis === 'panggilan' && !/^[A-Za-z0-9_-]{1,200}$/.test(callId)) return teks('Data salah', 400);
+  const ke = typeof body.ke === 'string' ? body.ke : '';
+  const idSah = (x) => /^[A-Za-z0-9_-]{1,200}$/.test(x);
+  if (!idSah(chatId)) return teks('Data salah', 400);
+  if (jenis !== 'pesan' && !idSah(callId)) return teks('Data salah', 400);
+  if (jenis === 'undang' && !idSah(ke)) return teks('Data salah', 400);
 
   const akses = await tokenAkses(akun);
   const fs = new Firestore(projectId, akses);
+
+  // Mengajak satu orang ke panggilan yang sedang berjalan. Orang yang diajak
+  // boleh bukan anggota chat, jadi yang diperiksa adalah panggilannya.
+  if (jenis === 'undang') return undang(fs, projectId, akses, uid, callId, ke);
 
   const chat = await fs.ambil(`chats/${chatId}`);
   if (!chat) return teks('Chat tidak ada', 404);
@@ -97,6 +104,26 @@ async function kirim(request, env) {
     token.filter(Boolean).map((t) => kirimFcm(projectId, akses, nilaiString(t.token), data, jenis)),
   );
   return new Response(JSON.stringify({ terkirim: hasil.filter(Boolean).length }), {
+    headers: { 'content-type': 'application/json' },
+  });
+}
+
+async function undang(fs, projectId, akses, uid, callId, ke) {
+  const p = await fs.ambil(`panggilan/${callId}`);
+  if (!p || nilaiString(p.status) === 'selesai') return teks('Panggilan tidak valid', 409);
+  const ikut = daftarString(p.ikut);
+  const anggota = daftarString(p.anggota);
+  if (!ikut.includes(uid) || !anggota.includes(ke) || ke === uid) return teks('Panggilan tidak valid', 409);
+  // Harus ada tanda "diajak" baru dari pengirim untuk orang itu.
+  const ping = await fs.ambil(`panggilanMasuk/${ke}`);
+  const at = Date.parse(nilaiWaktu(ping?.at) || '');
+  if (!ping || nilaiString(ping.callId) !== callId || nilaiString(ping.dari) !== uid || !(Date.now() - at < BATAS_PANGGILAN_MS)) {
+    return teks('Panggilan tidak valid', 409);
+  }
+  const [token] = await fs.ambilBanyak([`fcmTokens/${ke}`]);
+  const data = { jenis: 'panggilan', chatId: nilaiString(p.chatId), callId };
+  const ok = token ? await kirimFcm(projectId, akses, nilaiString(token.token), data, 'panggilan') : false;
+  return new Response(JSON.stringify({ terkirim: ok ? 1 : 0 }), {
     headers: { 'content-type': 'application/json' },
   });
 }

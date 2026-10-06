@@ -91,6 +91,24 @@ service cloud.firestore {
         !(before.get('requestSent', false) == true && after.get('requestSent', false) != true);
     }
 
+    // Pemilik grup: field admin, atau anggota pertama jika pemiliknya sudah keluar.
+    function pemilikGrup(data) {
+      return data.get('admin', '') in data.members ? data.get('admin', '') : data.members[0];
+    }
+
+    // Perubahan grup: hanya pemilik yang boleh mengeluarkan orang lain dan
+    // memindahkan kepemilikan (ke anggota grup). Anggota biasa hanya boleh
+    // mengeluarkan dirinya sendiri.
+    function validGroupUpdate() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let pemilik = pemilikGrup(before) == request.auth.uid;
+      let keluar = before.members.toSet().difference(after.members.toSet());
+      return (keluar.hasOnly([request.auth.uid]) || pemilik) &&
+        (after.get('admin', '') == before.get('admin', '') ||
+         (pemilik && after.get('admin', '') in after.members));
+    }
+
     // Boleh mengirim pesan/file: chat aktif, atau saya pengirim permintaan
     // yang belum memakai jatah 1 pesan.
     function canSend(chat) {
@@ -110,7 +128,8 @@ service cloud.firestore {
          (validPrivateMembers(chatId, request.resource.data.members) &&
           validNewPrivate(request.resource.data)));
       allow update: if signedIn() && request.auth.uid in resource.data.members &&
-        (!isPrivateId(chatId) || validPrivateUpdate());
+        (!isPrivateId(chatId) || validPrivateUpdate()) &&
+        (isPrivateId(chatId) || validGroupUpdate());
       allow delete: if false;
 
       match /messages/{messageId} {
@@ -151,6 +170,20 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
+    // Pengaturan pribadi tiap chat: disematkan, diarsipkan, dihapus untuk
+    // saya, dan pesan berbintang. Hanya pemiliknya.
+    match /users/{uid}/obrolan/{chatId} {
+      allow read, delete: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid &&
+        request.resource.data.keys().hasOnly(['disematkan', 'arsip', 'hapusSebelum', 'bintang']) &&
+        request.resource.data.get('bintang', []).size() <= 500;
+    }
+
+    // Panggilan yang saya hapus dari riwayat. Hanya pemiliknya.
+    match /users/{uid}/riwayatPanggilan/{callId} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
     // Kapan saya terakhir membaca tiap chat (untuk hitungan pesan belum dibaca).
     // Pribadi: hanya pemiliknya.
     match /users/{uid}/bacaan/{chatId} {
@@ -187,15 +220,29 @@ service cloud.firestore {
         before.toSet().difference(after.toSet()).hasOnly([request.auth.uid]);
     }
 
+    // Orang baru yang diajak ke panggilan: tepat satu teman saya, ditambahkan
+    // di akhir daftar, oleh orang yang sedang ikut. Maks. 8 orang.
+    function tambahSatuTeman(before, after) {
+      return after.anggota.size() == before.anggota.size() + 1 &&
+        after.anggota.size() <= 8 &&
+        after.anggota[0:before.anggota.size()] == before.anggota &&
+        request.auth.uid in before.ikut &&
+        before.status != 'selesai' &&
+        isFriend(request.auth.uid, after.anggota[before.anggota.size()]);
+    }
+
     match /panggilan/{callId} {
       allow get: if signedIn() &&
         (resource == null || request.auth.uid in resource.data.anggota);
+      // Riwayat panggilan saya.
+      allow list: if signedIn() && request.auth.uid in resource.data.anggota;
       // Memulai panggilan di chat aktif; yang dipanggil = semua anggota chat.
       allow create: if signedIn() &&
         request.resource.data.keys().hasOnly(
-          ['chatId', 'dari', 'video', 'grup', 'anggota', 'ikut', 'tolak', 'status', 'dibuatMs', 'dibuat']) &&
+          ['chatId', 'dari', 'video', 'grup', 'anggota', 'ikut', 'pernah', 'tolak', 'status', 'dibuatMs', 'dibuat']) &&
         request.resource.data.dari == request.auth.uid &&
         request.resource.data.ikut == [request.auth.uid] &&
+        request.resource.data.get('pernah', [request.auth.uid]) == [request.auth.uid] &&
         request.resource.data.tolak == [] &&
         request.resource.data.status == 'berdering' &&
         request.resource.data.video is bool &&
@@ -204,11 +251,17 @@ service cloud.firestore {
           request.resource.data.anggota &&
         get(/databases/$(database)/documents/chats/$(request.resource.data.chatId)).data.get('status', 'aktif') == 'aktif';
       // Ikut/keluar/menolak hanya untuk diri sendiri; panggilan yang
-      // selesai tidak bisa dimulai lagi.
+      // selesai tidak bisa dimulai lagi; mengajak teman satu per satu.
       allow update: if signedIn() && request.auth.uid in resource.data.anggota &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ikut', 'tolak', 'status']) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['ikut', 'tolak', 'status', 'pernah', 'anggota', 'mulaiMs', 'selesaiMs']) &&
         hanyaSaya(resource.data.ikut, request.resource.data.ikut) &&
         hanyaSaya(resource.data.tolak, request.resource.data.tolak) &&
+        hanyaSaya(resource.data.get('pernah', []), request.resource.data.get('pernah', [])) &&
+        (request.resource.data.anggota == resource.data.anggota ||
+         tambahSatuTeman(resource.data, request.resource.data)) &&
+        request.resource.data.get('mulaiMs', 0) is number &&
+        request.resource.data.get('selesaiMs', 0) is number &&
         request.resource.data.status in ['berdering', 'berlangsung', 'selesai'] &&
         (resource.data.status != 'selesai' || request.resource.data.status == 'selesai');
       allow delete: if false;
@@ -230,10 +283,12 @@ service cloud.firestore {
     // Tanda "ada yang menelepon" untuk tiap orang (dipantau saat aplikasi terbuka).
     match /panggilanMasuk/{uid} {
       allow read: if signedIn() && request.auth.uid == uid;
+      // Oleh pemanggil, atau oleh orang yang sedang ikut panggilan (mengajak).
       allow create, update: if signedIn() &&
         request.resource.data.keys().hasOnly(['callId', 'dari', 'at']) &&
         request.resource.data.dari == request.auth.uid &&
-        getAfter(/databases/$(database)/documents/panggilan/$(request.resource.data.callId)).data.dari == request.auth.uid &&
+        (getAfter(/databases/$(database)/documents/panggilan/$(request.resource.data.callId)).data.dari == request.auth.uid ||
+         request.auth.uid in getAfter(/databases/$(database)/documents/panggilan/$(request.resource.data.callId)).data.ikut) &&
         uid in getAfter(/databases/$(database)/documents/panggilan/$(request.resource.data.callId)).data.anggota;
     }
 

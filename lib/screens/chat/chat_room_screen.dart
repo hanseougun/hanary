@@ -20,12 +20,14 @@ import '../../services/chat_repository.dart';
 import '../../services/draf_chat.dart';
 import '../../services/edit_gambar.dart';
 import '../../services/notifikasi_service.dart';
+import '../../services/obrolan_saya.dart';
 import '../../services/pesan_dihapus.dart';
 import '../../services/tugas_repository.dart';
 import '../../theme/hanary_theme.dart';
 import 'chat_widgets.dart';
 import 'group_info_screen.dart';
 import 'panggilan_screen.dart';
+import 'pesan_berbintang_screen.dart';
 import 'pesan_suara.dart';
 import 'profil_orang_screen.dart';
 
@@ -248,6 +250,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _PilihanLampiran(icon: Icons.photo_library, label: 'Galeri', warna: Colors.purple, nilai: 'galeri'),
               _PilihanLampiran(icon: Icons.photo_camera, label: 'Kamera', warna: Colors.pink, nilai: 'kamera'),
@@ -337,6 +340,35 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     }
   }
 
+  Future<void> _menuAtas(ChatRoom room, String pilihan) async {
+    switch (pilihan) {
+      case 'info':
+        await Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => GroupInfoScreen(chatId: room.id, me: widget.me),
+        ));
+      case 'bintang':
+        await Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => PesanBerbintangScreen(me: widget.me, chatId: room.id),
+        ));
+      case 'hapus':
+        final ok = await confirmDialog(
+          context,
+          title: 'Hapus obrolan ini?',
+          message: 'Semua pesan di chat ini akan hilang dari HP-mu. Temanmu tetap bisa melihat pesannya.',
+          action: 'Hapus',
+        );
+        if (!ok || !mounted) return;
+        final nav = Navigator.of(context);
+        try {
+          _input.clear();
+          await ObrolanSaya.instance.hapusObrolan(widget.me, room.id);
+          nav.pop();
+        } catch (e) {
+          if (mounted) showError(context, e);
+        }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<ChatRoom?>(
@@ -405,14 +437,15 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                   onPressed: () => mulaiPanggilan(context, room: room, me: widget.me, video: true),
                 ),
               ],
-              if (room.isGroup)
-                IconButton(
-                  tooltip: 'Info grup',
-                  icon: const Icon(Icons.info_outline),
-                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => GroupInfoScreen(chatId: room.id, me: widget.me),
-                  )),
-                ),
+              PopupMenuButton<String>(
+                tooltip: 'Lainnya',
+                onSelected: (v) => _menuAtas(room, v),
+                itemBuilder: (_) => [
+                  if (room.isGroup) const PopupMenuItem(value: 'info', child: Text('Info grup')),
+                  const PopupMenuItem(value: 'bintang', child: Text('Pesan berbintang')),
+                  const PopupMenuItem(value: 'hapus', child: Text('Hapus obrolan')),
+                ],
+              ),
             ],
           ),
           body: FutureBuilder<SecretKey?>(
@@ -425,6 +458,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
               if (key == null) return const _WaitingForKey();
               return Column(
                 children: [
+                  if (room.pin.isNotEmpty) _PesanSemat(room: room, roomKey: key, me: widget.me),
                   Expanded(child: _messageList(room, key)),
                   _bawah(room, key),
                 ],
@@ -439,47 +473,53 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   Widget _messageList(ChatRoom room, SecretKey key) {
     return StreamBuilder<List<ChatMessage>>(
       stream: _messages,
-      builder: (context, snap) {
-        if (snap.hasError) return Center(child: Text('Gagal memuat pesan: ${snap.error}'));
-        final semua = snap.data;
-        if (semua == null) return const Center(child: CircularProgressIndicator());
-        final disembunyikan = PesanDihapus.instance.dari(room.id);
-        final messages = semua.where((m) => !disembunyikan.contains(m.id)).toList();
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _tandaiDibaca(room, messages);
-        });
-        final lihatDibaca = UserFeed.of(widget.me).last?.kirimDibaca ?? true;
-        return ListView.builder(
-          reverse: true,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          itemCount: messages.length + _unggahan.length + 1,
-          itemBuilder: (context, i) {
-            if (i < _unggahan.length) return _BubbleUnggah(unggahan: _unggahan[_unggahan.length - 1 - i]);
-            i -= _unggahan.length;
-            if (i == messages.length) return const EncryptedNote();
-            final m = messages[i];
-            final older = i + 1 < messages.length ? messages[i + 1] : null;
-            final hariBaru = older == null || !_hariSama(older.createdAt, m.createdAt);
-            final bubble = _Bubble(
-              key: ValueKey(m.id),
-              onHapusUntukSaya: () async {
-                await PesanDihapus.instance.sembunyikan(room.id, m.id);
-                if (mounted) setState(() {});
-              },
-              room: room,
-              message: m,
-              roomKey: key,
-              me: widget.me,
-              onBalas: _mulaiBalas,
-              isMine: m.senderId == widget.me,
-              showSender: room.isGroup && m.senderId != widget.me && (older?.senderId != m.senderId || hariBaru),
-              dibaca: lihatDibaca && _sudahDibaca(room, m),
-            );
-            if (!hariBaru) return bubble;
-            return Column(children: [_PemisahHari(waktu: m.createdAt ?? DateTime.now()), bubble]);
-          },
-        );
-      },
+      builder: (context, snap) => ListenableBuilder(
+        listenable: ObrolanSaya.instance,
+        builder: (context, _) {
+          if (snap.hasError) return Center(child: Text('Gagal memuat pesan: ${snap.error}'));
+          final semua = snap.data;
+          if (semua == null) return const Center(child: CircularProgressIndicator());
+          final disembunyikan = PesanDihapus.instance.dari(room.id);
+          final status = ObrolanSaya.instance.dari(room.id);
+          final messages =
+              semua.where((m) => !disembunyikan.contains(m.id) && !status.pesanTerhapus(m.createdAt)).toList();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _tandaiDibaca(room, messages);
+          });
+          final lihatDibaca = UserFeed.of(widget.me).last?.kirimDibaca ?? true;
+          return ListView.builder(
+            reverse: true,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            itemCount: messages.length + _unggahan.length + 1,
+            itemBuilder: (context, i) {
+              if (i < _unggahan.length) return _BubbleUnggah(unggahan: _unggahan[_unggahan.length - 1 - i]);
+              i -= _unggahan.length;
+              if (i == messages.length) return const EncryptedNote();
+              final m = messages[i];
+              final older = i + 1 < messages.length ? messages[i + 1] : null;
+              final hariBaru = older == null || !_hariSama(older.createdAt, m.createdAt);
+              final bubble = _Bubble(
+                key: ValueKey(m.id),
+                onHapusUntukSaya: () async {
+                  await PesanDihapus.instance.sembunyikan(room.id, m.id);
+                  if (mounted) setState(() {});
+                },
+                room: room,
+                message: m,
+                roomKey: key,
+                me: widget.me,
+                onBalas: _mulaiBalas,
+                isMine: m.senderId == widget.me,
+                showSender: room.isGroup && m.senderId != widget.me && (older?.senderId != m.senderId || hariBaru),
+                dibaca: lihatDibaca && _sudahDibaca(room, m),
+                berbintang: status.bintang.contains(m.id),
+              );
+              if (!hariBaru) return bubble;
+              return Column(children: [_PemisahHari(waktu: m.createdAt ?? DateTime.now()), bubble]);
+            },
+          );
+        },
+      ),
     );
   }
 
@@ -671,19 +711,22 @@ class _PilihanLampiran extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () => Navigator.pop(context, nilai),
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Column(
-          children: [
-            CircleAvatar(radius: 28, backgroundColor: warna, child: Icon(icon, color: Colors.white)),
-            const SizedBox(height: 6),
-            Text(label),
-          ],
+    // Hanya lingkaran ikonnya yang bisa diketuk (bukan satu kolom panjang).
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Material(
+          color: warna,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => Navigator.pop(context, nilai),
+            child: SizedBox(width: 56, height: 56, child: Icon(icon, color: Colors.white)),
+          ),
         ),
-      ),
+        const SizedBox(height: 6),
+        Text(label),
+      ],
     );
   }
 }
@@ -822,6 +865,7 @@ class _Bubble extends StatefulWidget {
     required this.dibaca,
     required this.onHapusUntukSaya,
     required this.onBalas,
+    this.berbintang = false,
   });
   final Future<void> Function() onHapusUntukSaya;
   final void Function(BalasanPesan balas) onBalas;
@@ -832,6 +876,7 @@ class _Bubble extends StatefulWidget {
   final bool isMine;
   final bool showSender;
   final bool dibaca;
+  final bool berbintang;
 
   @override
   State<_Bubble> createState() => _BubbleState();
@@ -874,6 +919,9 @@ class _BubbleState extends State<_Bubble> {
     final m = widget.message;
     final isi = _terbuka;
     final bisaTarik = widget.isMine && !m.pending && !m.ditarik;
+    final bisaDitandai = !m.pending && !m.ditarik;
+    final disematkan = widget.room.pin.contains(m.id);
+    final bisaSemat = bisaDitandai && widget.room.status == ChatStatus.aktif;
     final pilihan = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -892,6 +940,19 @@ class _BubbleState extends State<_Bubble> {
                 leading: const Icon(Icons.copy_rounded),
                 title: const Text('Salin'),
                 onTap: () => Navigator.pop(ctx, 'salin'),
+              ),
+            if (bisaDitandai)
+              ListTile(
+                leading: Icon(widget.berbintang ? Icons.star_rounded : Icons.star_outline_rounded),
+                title: Text(widget.berbintang ? 'Hapus bintang' : 'Beri bintang'),
+                onTap: () => Navigator.pop(ctx, 'bintang'),
+              ),
+            if (bisaSemat)
+              ListTile(
+                leading: Icon(disematkan ? Icons.push_pin_outlined : Icons.push_pin),
+                title: Text(disematkan ? 'Lepas sematan' : 'Sematkan pesan'),
+                subtitle: disematkan ? null : const Text('Tampil di atas chat untuk semua anggota'),
+                onTap: () => Navigator.pop(ctx, 'semat'),
               ),
             ListTile(
               leading: const Icon(Icons.delete_outline_rounded),
@@ -918,6 +979,18 @@ class _BubbleState extends State<_Bubble> {
         await Clipboard.setData(ClipboardData(text: isi!.teks));
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pesan disalin')));
+        }
+      case 'bintang':
+        try {
+          await ObrolanSaya.instance.beriBintang(widget.me, widget.room.id, m.id, !widget.berbintang);
+        } catch (e) {
+          if (mounted) showError(context, e);
+        }
+      case 'semat':
+        try {
+          await ChatRepository.instance.sematkanPesan(widget.room, m.id, !disematkan);
+        } catch (e) {
+          if (mounted) showError(context, e);
         }
       case 'hapus':
         await widget.onHapusUntukSaya();
@@ -1057,6 +1130,14 @@ class _BubbleState extends State<_Bubble> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        if (widget.berbintang) ...[
+                          Icon(Icons.star_rounded, size: 14, color: fg.withValues(alpha: 0.7)),
+                          const SizedBox(width: 2),
+                        ],
+                        if (widget.room.pin.contains(m.id)) ...[
+                          Icon(Icons.push_pin, size: 13, color: fg.withValues(alpha: 0.7)),
+                          const SizedBox(width: 2),
+                        ],
                         Text(
                           formatChatTime(m.createdAt ?? DateTime.now()),
                           style: theme.textTheme.labelSmall?.copyWith(color: fg.withValues(alpha: 0.7)),
@@ -1108,6 +1189,119 @@ class _BubbleState extends State<_Bubble> {
       case MessageKind.suara:
         return SuaraChat(chatId: widget.room.id, berkas: isi.berkas!, roomKey: widget.roomKey, fg: fg);
     }
+  }
+}
+
+/// Pesan yang disematkan, tampil di atas percakapan. Ketuk untuk melihat
+/// pesan berikutnya; tekan lama untuk melihat semuanya.
+class _PesanSemat extends StatefulWidget {
+  const _PesanSemat({required this.room, required this.roomKey, required this.me});
+  final ChatRoom room;
+  final SecretKey roomKey;
+  final String me;
+
+  @override
+  State<_PesanSemat> createState() => _PesanSematState();
+}
+
+class _PesanSematState extends State<_PesanSemat> {
+  int _ke = 0;
+  final _cache = <String, Future<BalasanPesan?>>{};
+
+  Future<BalasanPesan?> _ringkas(String id) {
+    return _cache[id] ??= () async {
+      final repo = ChatRepository.instance;
+      final m = await repo.ambilPesan(widget.room.id, id);
+      if (m == null) return null;
+      if (m.ditarik) return BalasanPesan(id: id, dari: m.senderId, ringkas: 'Pesan ditarik');
+      final isi = await repo.decryptIsi(widget.room.id, m.kind, m.box, widget.roomKey);
+      return isi == null ? null : BalasanPesan.dariPesan(id, m.senderId, isi);
+    }();
+  }
+
+  Future<void> _semua() async {
+    final pin = widget.room.pin.reversed.toList();
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text('Pesan disematkan', style: Theme.of(ctx).textTheme.titleMedium),
+            ),
+            for (final id in pin)
+              FutureBuilder<BalasanPesan?>(
+                future: _ringkas(id),
+                builder: (ctx, snap) {
+                  final b = snap.data;
+                  return ListTile(
+                    leading: const Icon(Icons.push_pin),
+                    title: b == null ? const Text('…') : KutipanBalasan(balas: b, me: widget.me),
+                    trailing: IconButton(
+                      tooltip: 'Lepas sematan',
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        ChatRepository.instance.sematkanPesan(widget.room, id, false).catchError((Object e) {
+                          if (mounted) showError(context, e);
+                        });
+                      },
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final pin = widget.room.pin;
+    final ke = _ke % pin.length;
+    // Yang terbaru tampil lebih dulu.
+    final id = pin[pin.length - 1 - ke];
+    return Material(
+      color: theme.colorScheme.surfaceContainerLow,
+      child: InkWell(
+        onTap: () => setState(() => _ke++),
+        onLongPress: _semua,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+          child: Row(
+            children: [
+              Icon(Icons.push_pin, size: 18, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FutureBuilder<BalasanPesan?>(
+                  future: _ringkas(id),
+                  builder: (context, snap) {
+                    final b = snap.data;
+                    if (b == null) return const Text('Pesan disematkan');
+                    return KutipanBalasan(balas: b, me: widget.me);
+                  },
+                ),
+              ),
+              if (pin.length > 1)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Text('${ke + 1}/${pin.length}', style: theme.textTheme.labelSmall),
+                ),
+              IconButton(
+                tooltip: 'Semua pesan disematkan',
+                icon: const Icon(Icons.list_rounded),
+                onPressed: _semua,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

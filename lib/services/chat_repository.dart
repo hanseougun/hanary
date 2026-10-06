@@ -168,12 +168,53 @@ class ChatRepository {
     });
   }
 
+  /// Keluar dari grup. Jika saya pemiliknya, kepemilikan pindah ke
+  /// anggota berikutnya.
   Future<void> leaveGroup(ChatRoom room, String me) {
+    final sisa = room.members.where((m) => m != me).toList();
     return _chats.doc(room.id).update({
       'members': FieldValue.arrayRemove([me]),
       'keys.$me': FieldValue.delete(),
       'readAt.$me': FieldValue.delete(),
+      if (room.isPemilik(me) && sisa.isNotEmpty) 'admin': sisa.first,
     });
+  }
+
+  /// Pemilik grup mengeluarkan [uid] dari grup.
+  Future<void> keluarkanAnggota(ChatRoom room, String me, String uid) {
+    if (!room.isPemilik(me)) throw StateError('Hanya pemilik grup yang bisa mengeluarkan anggota.');
+    return _chats.doc(room.id).update({
+      'members': FieldValue.arrayRemove([uid]),
+      'keys.$uid': FieldValue.delete(),
+      'readAt.$uid': FieldValue.delete(),
+      if (room.admin != room.pemilik) 'admin': me,
+    });
+  }
+
+  /// Pemilik grup menyerahkan kepemilikan ke anggota lain.
+  Future<void> jadikanPemilik(ChatRoom room, String me, String uid) {
+    if (!room.isPemilik(me)) throw StateError('Hanya pemilik grup yang bisa memindahkan kepemilikan.');
+    return _chats.doc(room.id).update({'admin': uid});
+  }
+
+  /// Batas pesan yang disematkan di satu chat.
+  static const maksPin = 3;
+
+  /// Menyematkan pesan di atas chat (terlihat semua anggota), atau melepasnya.
+  /// Jika sudah ada [maksPin] pesan, yang paling lama dilepas.
+  Future<void> sematkanPesan(ChatRoom room, String pesanId, bool aktif) {
+    var pin = room.pin.where((id) => id != pesanId).toList();
+    if (aktif) {
+      pin.add(pesanId);
+      if (pin.length > maksPin) pin = pin.sublist(pin.length - maksPin);
+    }
+    return _chats.doc(room.id).update({'pin': pin});
+  }
+
+  /// Satu pesan berdasarkan id (mis. pesan yang disematkan atau berbintang).
+  Future<ChatMessage?> ambilPesan(String chatId, String pesanId) async {
+    final s = await _chats.doc(chatId).collection('messages').doc(pesanId).get();
+    return s.exists ? ChatMessage.fromSnapshot(s) : null;
   }
 
   Stream<List<ChatMessage>> watchMessages(String chatId) {
@@ -234,8 +275,11 @@ class ChatRepository {
       'ditarik': true,
       if (m.balasBox != null) 'balas': FieldValue.delete(),
     });
-    if (room.lastBox == m.box) {
-      batch.update(_chats.doc(room.id), {'lastBox': '', 'lastKind': lastKindDitarik});
+    if (room.lastBox == m.box || room.pin.contains(m.id)) {
+      batch.update(_chats.doc(room.id), {
+        if (room.lastBox == m.box) ...{'lastBox': '', 'lastKind': lastKindDitarik},
+        if (room.pin.contains(m.id)) 'pin': FieldValue.arrayRemove([m.id]),
+      });
     }
     await batch.commit();
     if (berkas != null) await ChatFiles.instance.hapus(room.id, berkas);

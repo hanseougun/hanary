@@ -3,13 +3,15 @@ import 'package:flutter/material.dart';
 import '../../models/chat_room.dart';
 import '../../services/avatar_service.dart';
 import '../../services/chat_repository.dart';
+import '../../services/user_directory.dart';
 import 'chat_widgets.dart';
 import 'lihat_foto.dart';
 import 'new_group_screen.dart';
 import 'profil_orang_screen.dart';
 
 /// Info grup: foto, nama, deskripsi, daftar anggota, tambah anggota,
-/// dan keluar dari grup. Semua anggota boleh mengubah info grup.
+/// dan keluar dari grup. Semua anggota boleh mengubah info grup; hanya
+/// pemilik yang boleh mengeluarkan anggota dan menyerahkan kepemilikan.
 class GroupInfoScreen extends StatefulWidget {
   const GroupInfoScreen({super.key, required this.chatId, required this.me});
   final String chatId;
@@ -104,11 +106,83 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
     }
   }
 
+  /// Ketuk anggota: lihat profil, atau (untuk pemilik) jadikan pemilik /
+  /// keluarkan dari grup.
+  Future<void> _menuAnggota(ChatRoom room, String uid) async {
+    if (!room.isPemilik(widget.me)) {
+      bukaProfil(context, uid);
+      return;
+    }
+    final pilihan = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        final merah = Theme.of(ctx).colorScheme.error;
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(leading: UserAvatar(uid: uid), title: UserName(uid: uid)),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: const Text('Lihat profil'),
+                onTap: () => Navigator.pop(ctx, 'profil'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.workspace_premium_outlined),
+                title: const Text('Jadikan pemilik grup'),
+                subtitle: const Text('Kamu tidak lagi menjadi pemilik'),
+                onTap: () => Navigator.pop(ctx, 'pemilik'),
+              ),
+              ListTile(
+                leading: Icon(Icons.person_remove_outlined, color: merah),
+                title: Text('Keluarkan dari grup', style: TextStyle(color: merah)),
+                onTap: () => Navigator.pop(ctx, 'keluarkan'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (pilihan == null || !mounted) return;
+    final repo = ChatRepository.instance;
+    final nama = await UserDirectory.instance.get(uid);
+    final sebutan = nama == null ? 'anggota ini' : (nama.sebutan.isNotEmpty ? nama.sebutan : nama.namaLengkap);
+    if (!mounted) return;
+    try {
+      switch (pilihan) {
+        case 'profil':
+          bukaProfil(context, uid);
+        case 'pemilik':
+          final ok = await confirmDialog(
+            context,
+            title: 'Jadikan $sebutan pemilik grup?',
+            message: 'Setelah ini hanya $sebutan yang bisa mengeluarkan anggota dan memindahkan kepemilikan.',
+            action: 'Jadikan pemilik',
+          );
+          if (ok) await repo.jadikanPemilik(room, widget.me, uid);
+        case 'keluarkan':
+          final ok = await confirmDialog(
+            context,
+            title: 'Keluarkan $sebutan dari grup?',
+            message: 'Dia tidak bisa lagi membaca atau mengirim pesan di grup ini.',
+            action: 'Keluarkan',
+          );
+          if (ok) await repo.keluarkanAnggota(room, widget.me, uid);
+      }
+    } catch (e) {
+      if (mounted) showError(context, e);
+    }
+  }
+
   Future<void> _leave(ChatRoom room) async {
     final ok = await confirmDialog(
       context,
       title: 'Keluar dari grup "${room.name}"?',
-      message: 'Kamu tidak akan menerima pesan baru dari grup ini.',
+      message: room.isPemilik(widget.me) && room.members.length > 1
+          ? 'Kamu tidak akan menerima pesan baru dari grup ini. Kepemilikan grup pindah ke anggota lain.'
+          : 'Kamu tidak akan menerima pesan baru dari grup ini.',
       action: 'Keluar',
     );
     if (!ok || !mounted) return;
@@ -196,8 +270,16 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
                 ListTile(
                   leading: UserAvatar(uid: m, showOnline: true),
                   title: m == widget.me ? const Text('Kamu') : UserName(uid: m),
-                  trailing: m == room.admin ? const Chip(label: Text('Pembuat')) : null,
-                  onTap: m == widget.me ? null : () => bukaProfil(context, m),
+                  trailing: m == room.pemilik ? const Chip(label: Text('Pemilik')) : null,
+                  onTap: m == widget.me ? null : () => _menuAnggota(room, m),
+                ),
+              if (room.isPemilik(widget.me))
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                  child: Text(
+                    'Kamu pemilik grup ini. Ketuk anggota untuk mengeluarkannya atau menjadikannya pemilik.',
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  ),
                 ),
               const Divider(),
               ListTile(

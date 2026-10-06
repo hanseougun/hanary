@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/app_user.dart';
 import '../services/chat_notifier.dart';
 import '../services/notifikasi_service.dart';
+import '../services/obrolan_saya.dart';
 import '../services/panggilan_service.dart';
 import '../services/presence_service.dart';
 import '../services/push_service.dart';
@@ -44,6 +45,7 @@ class _HomeShellState extends State<HomeShell> with SingleTickerProviderStateMix
     ChatNotifier.instance.start(widget.user.uid);
     PushService.instance.mulai(widget.user.uid);
     PanggilanService.instance.mulai(widget.user.uid);
+    ObrolanSaya.instance.mulai(widget.user.uid);
     NotifikasiService.instance.ketukChat.addListener(_bukaChatDariNotifikasi);
     NotifikasiService.instance.ketukPanggilan.addListener(_bukaPanggilanDariNotifikasi);
     PanggilanService.instance.masuk.addListener(_panggilanMasuk);
@@ -72,7 +74,8 @@ class _HomeShellState extends State<HomeShell> with SingleTickerProviderStateMix
     final nav = Navigator.of(context);
     try {
       final p = await PanggilanService.instance.ambil(callId);
-      if (p == null || !p.bisaDiangkat(widget.user.uid)) {
+      // Notifikasinya masih ada, jadi cukup periksa panggilan belum berakhir.
+      if (p == null || !p.bisaDiangkat(widget.user.uid, dipanggil: DateTime.now())) {
         await NotifikasiService.instance.hapusPanggilan(callId);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Panggilan sudah berakhir.')));

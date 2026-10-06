@@ -141,3 +141,40 @@ test('data aneh ditolak', async () => {
   assert.equal((await minta({ chatId: '../users/x' }, idToken('ani'))).status, 400);
   assert.equal((await minta({ chatId: 'g1', jenis: 'panggilan' }, idToken('ani'))).status, 400);
 });
+
+function siapkanUndang({ at = new Date().toISOString(), dari = 'ani', status = 'berlangsung' } = {}) {
+  siapkan();
+  const daftar = (xs) => ({ arrayValue: { values: xs.map(str) } });
+  db['panggilan/c9'] = {
+    dari: str('budi'),
+    chatId: str('p_ani_budi'),
+    status: str(status),
+    ikut: daftar(['ani', 'budi']),
+    anggota: daftar(['ani', 'budi', 'eka']),
+  };
+  db['panggilanMasuk/eka'] = { callId: str('c9'), dari: str(dari), at: { timestampValue: at } };
+  db['fcmTokens/eka'] = { token: str('token-eka') };
+}
+
+test('mengajak teman ke panggilan hanya membangunkan orang itu', async () => {
+  siapkanUndang();
+  const res = await minta({ chatId: 'p_ani_budi', jenis: 'undang', callId: 'c9', ke: 'eka' }, idToken('ani'));
+  assert.equal(res.status, 200);
+  assert.deepEqual(fcm.map((m) => m.token), ['token-eka']);
+  assert.deepEqual(fcm[0].data, { jenis: 'panggilan', chatId: 'p_ani_budi', callId: 'c9' });
+});
+
+test('ajakan palsu ditolak', async () => {
+  const kirim = (uid, ke = 'eka') => minta({ chatId: 'x', jenis: 'undang', callId: 'c9', ke }, idToken(uid));
+  siapkanUndang({ dari: 'budi' });
+  assert.equal((await kirim('ani')).status, 409); // tanda "diajak" bukan dari ani
+  siapkanUndang({ at: new Date(Date.now() - 5 * 60 * 1000).toISOString() });
+  assert.equal((await kirim('ani')).status, 409); // ajakan sudah lama
+  siapkanUndang({ status: 'selesai' });
+  assert.equal((await kirim('ani')).status, 409); // panggilan sudah selesai
+  siapkanUndang();
+  assert.equal((await kirim('eka')).status, 409); // eka belum ikut panggilan
+  assert.equal((await kirim('ani', 'cici')).status, 409); // cici bukan anggota panggilan
+  assert.equal((await minta({ chatId: 'x', jenis: 'undang', callId: 'c9' }, idToken('ani'))).status, 400);
+  assert.equal(fcm.length, 0);
+});

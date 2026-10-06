@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'chat_notifier.dart';
+import 'obrolan_saya.dart';
 import 'panggilan_service.dart';
 import 'presence_service.dart';
 import 'push_service.dart';
@@ -54,6 +55,7 @@ class AuthService {
   Future<void> signOut() async {
     ChatNotifier.instance.stop();
     PanggilanService.instance.berhenti();
+    ObrolanSaya.instance.berhenti();
     await PushService.instance.berhenti();
     await PresenceService.instance.stop();
     if (!kIsWeb) {
