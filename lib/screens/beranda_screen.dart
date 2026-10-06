@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../data/kalimat_penyemangat.dart';
+import '../l10n/bahasa.dart';
 import '../models/app_user.dart';
 import '../models/tugas.dart';
 import '../services/notifikasi_service.dart';
@@ -37,10 +38,10 @@ String sisaWaktu(DateTime deadline, DateTime sekarang) {
   final hariIni = DateTime(sekarang.year, sekarang.month, sekarang.day);
   final hariDeadline = DateTime(deadline.year, deadline.month, deadline.day);
   final selisih = hariDeadline.difference(hariIni).inDays;
-  if (deadline.isBefore(sekarang)) return 'Terlambat';
-  if (selisih == 0) return 'Hari ini $jam';
-  if (selisih == 1) return 'Besok $jam';
-  return '$selisih hari lagi';
+  if (deadline.isBefore(sekarang)) return tr('Terlambat');
+  if (selisih == 0) return tr('Hari ini {jam}', {'jam': jam});
+  if (selisih == 1) return tr('Besok {jam}', {'jam': jam});
+  return tr('{n} hari lagi', {'n': selisih});
 }
 
 /// Warna label mata pelajaran, selalu sama untuk nama yang sama.
@@ -96,14 +97,13 @@ class _BerandaScreenState extends State<BerandaScreen> {
       context: context,
       builder: (context) => AlertDialog(
         icon: const Icon(Icons.alarm_on_rounded),
-        title: const Text('Pengingat tepat waktu'),
-        content: const Text(
-          'Agar pengingat 1 jam, 30, 15, dan 5 menit sebelum deadline muncul tepat waktu, '
-          'izinkan Hanary memakai "Alarm & pengingat" di halaman berikutnya.',
+        title: Text(tr('Pengingat tepat waktu')),
+        content: Text(
+          tr('Agar pengingat 1 jam, 30, 15, dan 5 menit sebelum deadline muncul tepat waktu, izinkan Hanary memakai "Alarm & pengingat" di halaman berikutnya.'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Nanti saja')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Izinkan')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Nanti saja'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(tr('Izinkan'))),
         ],
       ),
     );
@@ -133,16 +133,17 @@ class _BerandaScreenState extends State<BerandaScreen> {
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(
           content: Text(status == StatusTugas.selesai
-              ? 'Mantap! "${t.judul}" selesai 🎉'
-              : '"${t.judul}" ditandai ${status.label.toLowerCase()}'),
+              ? tr('Mantap! "{judul}" selesai 🎉', {'judul': t.judul})
+              : tr('"{judul}" ditandai {status}', {'judul': t.judul, 'status': status.labelTr.toLowerCase()})),
           action: SnackBarAction(
-            label: 'Urungkan',
+            label: tr('Urungkan'),
             onPressed: () => TugasRepository.instance.setStatus(widget.user.uid, t.id, t.status),
           ),
         ));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal mengubah status: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(tr('Gagal mengubah status: {galat}', {'galat': e}))));
     }
   }
 
@@ -180,7 +181,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
                         children: [
                           Icon(ikonStatus(s), color: warnaStatus(s, colors)),
                           const SizedBox(width: 12),
-                          Expanded(child: Text(s.label, style: const TextStyle(fontWeight: FontWeight.w600))),
+                          Expanded(child: Text(s.labelTr, style: const TextStyle(fontWeight: FontWeight.w600))),
                           if (s == t.status) Icon(Icons.check_rounded, color: warnaStatus(s, colors)),
                         ],
                       ),
@@ -211,7 +212,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
         heroTag: 'fab-beranda',
         onPressed: _bukaForm,
         icon: const Icon(Icons.add_rounded),
-        label: const Text('Tugas baru', style: TextStyle(fontWeight: FontWeight.w700)),
+        label: Text(tr('Tugas baru'), style: const TextStyle(fontWeight: FontWeight.w700)),
       ),
       body: StreamBuilder<List<Tugas>>(
         stream: _tugas,
@@ -269,7 +270,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
               if (segera.isNotEmpty) ...[
                 SliverToBoxAdapter(
                   child: _JudulBagian(
-                    judul: 'Segera berakhir',
+                    judul: tr('Segera berakhir'),
                     ikon: Icons.local_fire_department_rounded,
                     padding: const EdgeInsets.fromLTRB(20, 24, 20, 10),
                   ),
@@ -300,10 +301,10 @@ class _BerandaScreenState extends State<BerandaScreen> {
                   padding: const EdgeInsets.fromLTRB(20, 24, 20, 10),
                   child: Row(
                     children: [
-                      Text('Daftar tugas', style: theme.textTheme.titleLarge),
+                      Text(tr('Daftar tugas'), style: theme.textTheme.titleLarge),
                       const Spacer(),
                       Text(
-                        '${tampil.length} tugas',
+                        tr('{n} tugas', {'n': tampil.length}),
                         style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                       ),
                     ],
@@ -326,7 +327,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
                         Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: ChoiceChip(
-                            label: Text(label),
+                            label: Text(tr(label)),
                             selected: _saring == s,
                             onSelected: (_) => setState(() => _saring = s),
                           ),
@@ -339,7 +340,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
                 SliverToBoxAdapter(
                   child: _Kosong(
                     icon: Icons.cloud_off_rounded,
-                    judul: 'Gagal memuat tugas',
+                    judul: tr('Gagal memuat tugas'),
                     keterangan: '${snap.error}',
                   ),
                 )
@@ -354,10 +355,10 @@ class _BerandaScreenState extends State<BerandaScreen> {
                 SliverToBoxAdapter(
                   child: _Kosong(
                     icon: semua.isEmpty ? Icons.edit_note_rounded : Icons.inbox_rounded,
-                    judul: semua.isEmpty ? 'Belum ada tugas' : 'Tidak ada tugas di sini',
+                    judul: semua.isEmpty ? tr('Belum ada tugas') : tr('Tidak ada tugas di sini'),
                     keterangan: semua.isEmpty
-                        ? 'Tekan tombol "Tugas baru" untuk mencatat tugas pertamamu.'
-                        : 'Coba pilih saringan lain.',
+                        ? tr('Tekan tombol "Tugas baru" untuk mencatat tugas pertamamu.')
+                        : tr('Coba pilih saringan lain.'),
                   ),
                 )
               else
@@ -432,8 +433,9 @@ class _Header extends StatelessWidget {
           child: Column(
             children: [
               Text(
-                DateFormat('EEE', 'id_ID').format(sekarang).toUpperCase(),
-                style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.w700),
+                DateFormat('EEE', kodeTanggal).format(sekarang).toUpperCase(),
+                style:
+                    theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.w700),
               ),
               Text(
                 '${sekarang.day}',
@@ -468,13 +470,13 @@ class _KartuProgres extends StatelessWidget {
     final rasio = total == 0 ? 0.0 : selesai / total;
     final String judul;
     if (total == 0) {
-      judul = 'Siap mulai hari ini?';
+      judul = tr('Siap mulai hari ini?');
     } else if (selesai == total) {
-      judul = 'Semua tugas beres! 🎉';
+      judul = tr('Semua tugas beres! 🎉');
     } else if (mendesak > 0) {
-      judul = '$mendesak tugas deadline < 24 jam';
+      judul = tr('{n} tugas deadline < 24 jam', {'n': mendesak});
     } else {
-      judul = '$selesai dari $total tugas selesai';
+      judul = tr('{selesai} dari {total} tugas selesai', {'selesai': selesai, 'total': total});
     }
     return Container(
       decoration: BoxDecoration(
@@ -541,7 +543,7 @@ class _KartuProgres extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'PROGRES TUGASMU',
+                        tr('PROGRES TUGASMU'),
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: Colors.white.withValues(alpha: 0.8),
                           letterSpacing: 1.5,
@@ -601,7 +603,7 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final warna = warnaStatus(status, theme.colorScheme);
-    final label = status == StatusTugas.dikerjakan ? 'Dikerjakan' : status.label;
+    final label = status == StatusTugas.dikerjakan ? tr('Dikerjakan') : status.labelTr;
     return Ketuk(
       onTap: onTap,
       child: AnimatedContainer(
@@ -791,8 +793,10 @@ class _TugasCard extends StatelessWidget {
         : mendesak
             ? colors.error
             : colors.primary;
-    final aksen = selesai ? warnaStatus(StatusTugas.selesai, colors) : (mendesak ? colors.error : warnaStatus(tugas.status, colors));
-    final tanggal = DateFormat('EEE, d MMM · HH:mm', 'id_ID').format(tugas.deadline);
+    final aksen = selesai
+        ? warnaStatus(StatusTugas.selesai, colors)
+        : (mendesak ? colors.error : warnaStatus(tugas.status, colors));
+    final tanggal = DateFormat('EEE, d MMM · HH:mm', kodeTanggal).format(tugas.deadline);
     return Dismissible(
       key: ValueKey('geser-${tugas.id}'),
       direction: selesai ? DismissDirection.endToStart : DismissDirection.horizontal,
@@ -805,13 +809,13 @@ class _TugasCard extends StatelessWidget {
       background: _latarGeser(
         warnaStatus(StatusTugas.selesai, colors),
         Icons.check_rounded,
-        'Selesai',
+        tr('Selesai'),
         Alignment.centerLeft,
       ),
       secondaryBackground: _latarGeser(
         tugas.status == StatusTugas.belum ? colors.primary : const Color(0xFFF59E0B),
         tugas.status == StatusTugas.belum ? Icons.timelapse_rounded : Icons.undo_rounded,
-        tugas.status == StatusTugas.belum ? 'Kerjakan' : 'Belum',
+        tugas.status == StatusTugas.belum ? tr('Kerjakan') : tr('Belum'),
         Alignment.centerRight,
       ),
       child: Card(
@@ -828,7 +832,7 @@ class _TugasCard extends StatelessWidget {
                   padding: const EdgeInsets.only(left: 4),
                   child: Center(
                     child: IconButton(
-                      tooltip: 'Ubah status',
+                      tooltip: tr('Ubah status'),
                       onPressed: onStatus,
                       icon: AnimatedSwitcher(
                         duration: const Duration(milliseconds: 300),
@@ -871,7 +875,7 @@ class _TugasCard extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
-                                selesai ? 'Selesai' : sisaWaktu(tugas.deadline, sekarang),
+                                selesai ? tr('Selesai') : sisaWaktu(tugas.deadline, sekarang),
                                 style: theme.textTheme.labelSmall?.copyWith(
                                   color: warnaWaktu,
                                   fontWeight: FontWeight.w800,
@@ -906,7 +910,8 @@ class _TugasCard extends StatelessWidget {
                               children: [
                                 Icon(Icons.event_rounded, size: 14, color: colors.onSurfaceVariant),
                                 const SizedBox(width: 4),
-                                Text(tanggal, style: theme.textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant)),
+                                Text(tanggal,
+                                    style: theme.textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant)),
                               ],
                             ),
                             if (tugas.lampiran.isNotEmpty)

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/bahasa.dart';
 import '../models/app_user.dart';
 import '../services/auth_service.dart';
 import '../services/avatar_service.dart';
@@ -18,10 +19,10 @@ class ProfileScreen extends StatelessWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Keluar dari akun?'),
+        title: Text(tr('Keluar dari akun?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Keluar')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Batal'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Keluar'))),
         ],
       ),
     );
@@ -39,18 +40,18 @@ class ProfileScreen extends StatelessWidget {
             if (user.fotoVer != null || user.fotoUrl != null)
               ListTile(
                 leading: const Icon(Icons.fullscreen_rounded),
-                title: const Text('Lihat foto'),
+                title: Text(tr('Lihat foto')),
                 onTap: () => Navigator.pop(ctx, 'lihat'),
               ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Pilih foto dari galeri'),
+              title: Text(tr('Pilih foto dari galeri')),
               onTap: () => Navigator.pop(ctx, 'galeri'),
             ),
             if (user.fotoVer != null)
               ListTile(
                 leading: const Icon(Icons.restart_alt),
-                title: Text(user.fotoUrl != null ? 'Pakai foto akun Google' : 'Hapus foto'),
+                title: Text(tr(user.fotoUrl != null ? 'Pakai foto akun Google' : 'Hapus foto')),
                 onTap: () => Navigator.pop(ctx, 'hapus'),
               ),
           ],
@@ -71,11 +72,12 @@ class ProfileScreen extends StatelessWidget {
       if (foto == null) return;
       await AvatarService.instance.simpanFotoUser(user.uid, foto);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Foto profil diganti')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('Foto profil diganti'))));
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal mengganti foto: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(tr('Gagal mengganti foto: {error}', {'error': e}))));
       }
     }
   }
@@ -90,10 +92,10 @@ class ProfileScreen extends StatelessWidget {
     final gaya = GayaHanary.dari(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profil'),
+        title: Text(tr('Profil')),
         actions: [
           IconButton(
-            tooltip: 'Pengaturan',
+            tooltip: tr('Pengaturan'),
             icon: const Icon(Icons.settings_outlined),
             onPressed: () => _buka(context, const PengaturanScreen()),
           ),
@@ -165,7 +167,7 @@ class ProfileScreen extends StatelessWidget {
                   FilledButton.tonalIcon(
                     onPressed: () => _buka(context, ProfileFormScreen(user: user)),
                     icon: const Icon(Icons.edit_rounded, size: 18),
-                    label: const Text('Edit profil'),
+                    label: Text(tr('Edit profil')),
                     style: FilledButton.styleFrom(
                       backgroundColor: Colors.white.withValues(alpha: 0.22),
                       foregroundColor: Colors.white,
@@ -182,9 +184,24 @@ class ProfileScreen extends StatelessWidget {
               margin: EdgeInsets.zero,
               child: Column(
                 children: [
-                  _InfoTile(icon: Icons.badge_outlined, label: 'Nama lengkap', value: user.namaLengkap),
-                  _InfoTile(icon: Icons.school_outlined, label: 'Sekolah / kampus', value: user.sekolah),
-                  _InfoTile(icon: Icons.class_outlined, label: 'Kelas / jurusan', value: user.kelas),
+                  _InfoTile(icon: Icons.badge_outlined, label: tr('Nama lengkap'), value: user.namaLengkap),
+                  _InfoTile(
+                    icon: Icons.alternate_email_rounded,
+                    label: tr('Username'),
+                    value: user.username.isEmpty ? '' : '@${user.username}',
+                  ),
+                  if (user.peran != null)
+                    _InfoTile(icon: Icons.interests_outlined, label: tr('Kegiatan'), value: tr(user.peran!.label)),
+                  _InfoTile(
+                    icon: user.peran == Peran.pekerja ? Icons.business_outlined : Icons.school_outlined,
+                    label: tr(user.labelTempat),
+                    value: user.sekolah,
+                  ),
+                  _InfoTile(
+                    icon: user.peran == Peran.pekerja ? Icons.work_outline_rounded : Icons.class_outlined,
+                    label: tr(user.labelPosisi),
+                    value: user.kelas,
+                  ),
                 ],
               ),
             ),
@@ -199,8 +216,8 @@ class ProfileScreen extends StatelessWidget {
                 children: [
                   ListTile(
                     leading: const _IkonBulat(icon: Icons.palette_outlined),
-                    title: const Text('Pengaturan'),
-                    subtitle: const Text('Mode gelap, tema latar, privasi'),
+                    title: Text(tr('Pengaturan')),
+                    subtitle: Text(tr('Mode gelap, tema latar, privasi')),
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () => _buka(context, const PengaturanScreen()),
                   ),
@@ -214,7 +231,7 @@ class ProfileScreen extends StatelessWidget {
             child: OutlinedButton.icon(
               onPressed: () => _confirmLogout(context),
               icon: const Icon(Icons.logout_rounded),
-              label: const Text('Keluar'),
+              label: Text(tr('Keluar')),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size.fromHeight(50),
                 foregroundColor: theme.colorScheme.error,

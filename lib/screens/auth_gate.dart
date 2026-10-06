@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../l10n/bahasa.dart';
 import '../models/app_user.dart';
 import '../services/auth_service.dart';
 import '../services/user_repository.dart';
@@ -47,7 +48,7 @@ class _ProfileGateState extends State<_ProfileGate> {
       future: _init,
       builder: (context, initSnap) {
         if (initSnap.hasError) {
-          return _ErrorView(message: 'Gagal memuat profil: ${initSnap.error}');
+          return _ErrorView(message: tr('Gagal memuat profil: {error}', {'error': initSnap.error}));
         }
         if (initSnap.connectionState != ConnectionState.done) {
           return const _Loading();
@@ -94,7 +95,7 @@ class _ErrorView extends StatelessWidget {
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: AuthService.instance.signOut,
-                child: const Text('Keluar'),
+                child: Text(tr('Keluar')),
               ),
             ],
           ),

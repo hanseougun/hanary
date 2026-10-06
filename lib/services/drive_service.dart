@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import '../l10n/bahasa.dart';
 import 'auth_service.dart';
 
 /// Upload/download lampiran ke Google Drive milik pengguna, di folder "Hanary".
@@ -22,9 +23,9 @@ class DriveService {
 
   Never _gagal(http.BaseResponse res, String body) {
     if (res.statusCode == 403 && body.contains('accessNotConfigured')) {
-      throw const DriveException('Google Drive API belum diaktifkan untuk aplikasi ini.');
+      throw DriveException(tr('Google Drive API belum diaktifkan untuk aplikasi ini.'));
     }
-    throw DriveException('Google Drive menolak (${res.statusCode}).');
+    throw DriveException(tr('Google Drive menolak ({kode}).', {'kode': res.statusCode}));
   }
 
   Future<String> _folder(Map<String, String> headers) async {

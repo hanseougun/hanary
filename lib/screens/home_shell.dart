@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/bahasa.dart';
 import '../models/app_user.dart';
 import '../services/chat_notifier.dart';
 import '../services/notifikasi_service.dart';
+import '../services/obrolan_saya.dart';
 import '../services/panggilan_service.dart';
 import '../services/presence_service.dart';
 import '../services/push_service.dart';
@@ -44,6 +46,7 @@ class _HomeShellState extends State<HomeShell> with SingleTickerProviderStateMix
     ChatNotifier.instance.start(widget.user.uid);
     PushService.instance.mulai(widget.user.uid);
     PanggilanService.instance.mulai(widget.user.uid);
+    ObrolanSaya.instance.mulai(widget.user.uid);
     NotifikasiService.instance.ketukChat.addListener(_bukaChatDariNotifikasi);
     NotifikasiService.instance.ketukPanggilan.addListener(_bukaPanggilanDariNotifikasi);
     PanggilanService.instance.masuk.addListener(_panggilanMasuk);
@@ -72,10 +75,11 @@ class _HomeShellState extends State<HomeShell> with SingleTickerProviderStateMix
     final nav = Navigator.of(context);
     try {
       final p = await PanggilanService.instance.ambil(callId);
-      if (p == null || !p.bisaDiangkat(widget.user.uid)) {
+      // Notifikasinya masih ada, jadi cukup periksa panggilan belum berakhir.
+      if (p == null || !p.bisaDiangkat(widget.user.uid, dipanggil: DateTime.now())) {
         await NotifikasiService.instance.hapusPanggilan(callId);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Panggilan sudah berakhir.')));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('Panggilan sudah berakhir.'))));
         }
         return;
       }
@@ -163,21 +167,21 @@ class _HomeShellState extends State<HomeShell> with SingleTickerProviderStateMix
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: _pilihTab,
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
-            label: 'Beranda',
+            icon: const Icon(Icons.home_outlined),
+            selectedIcon: const Icon(Icons.home_rounded),
+            label: tr('Beranda'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline_rounded),
-            selectedIcon: Icon(Icons.chat_bubble_rounded),
-            label: 'Chat',
+            icon: const Icon(Icons.chat_bubble_outline_rounded),
+            selectedIcon: const Icon(Icons.chat_bubble_rounded),
+            label: tr('Chat'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.person_outline_rounded),
-            selectedIcon: Icon(Icons.person_rounded),
-            label: 'Profil',
+            icon: const Icon(Icons.person_outline_rounded),
+            selectedIcon: const Icon(Icons.person_rounded),
+            label: tr('Profil'),
           ),
         ],
       ),

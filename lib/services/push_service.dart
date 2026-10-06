@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../firebase_options.dart';
+import '../l10n/bahasa.dart';
 import 'chat_notifier.dart';
 import 'notifikasi_service.dart';
 import 'panggilan_service.dart';
@@ -73,7 +74,8 @@ class PushService {
 
   /// Meminta server membangunkan anggota lain di chat ini.
   /// Tidak pernah melempar error: kalau gagal, pemeriksaan berkala tetap jalan.
-  Future<void> beriTahu({required String chatId, String jenis = 'pesan', String? callId}) async {
+  /// [ke]: untuk `jenis: 'undang'`, uid orang yang diajak ke panggilan.
+  Future<void> beriTahu({required String chatId, String jenis = 'pesan', String? callId, String? ke}) async {
     if (!aktif) return;
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -83,7 +85,12 @@ class PushService {
           .post(
             Uri.parse('$alamatServer/kirim'),
             headers: {'Authorization': 'Bearer $idToken', 'Content-Type': 'application/json'},
-            body: jsonEncode({'chatId': chatId, 'jenis': jenis, if (callId != null) 'callId': callId}),
+            body: jsonEncode({
+              'chatId': chatId,
+              'jenis': jenis,
+              if (callId != null) 'callId': callId,
+              if (ke != null) 'ke': ke,
+            }),
           )
           .timeout(const Duration(seconds: 15));
     } catch (e) {
@@ -100,6 +107,7 @@ Future<void> pushLatar(RemoteMessage pesan) async {
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
     }
+    await PengaturanBahasa.instance.muat();
     await NotifikasiService.instance.init();
     final user = await FirebaseAuth.instance
         .authStateChanges()

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/bahasa.dart';
 import '../models/app_user.dart';
 import '../models/chat_payload.dart';
 import '../models/chat_room.dart';
@@ -7,10 +8,13 @@ import '../services/chat_keys.dart';
 import '../services/chat_repository.dart';
 import '../services/draf_chat.dart';
 import '../services/friend_repository.dart';
+import '../services/obrolan_saya.dart';
 import 'chat/chat_room_screen.dart';
 import 'chat/chat_widgets.dart';
 import 'chat/friend_search_screen.dart';
 import 'chat/new_group_screen.dart';
+import 'chat/pesan_berbintang_screen.dart';
+import 'chat/riwayat_panggilan.dart';
 import 'chat/profil_orang_screen.dart';
 import 'chat/story_widgets.dart';
 import 'pengaturan/pengaturan_chat_screen.dart';
@@ -37,31 +41,39 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     final me = widget.user.uid;
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Chat'),
+          title: Text(tr('Chat')),
           actions: [
             IconButton(
-              tooltip: 'Tambah teman',
+              tooltip: tr('Pesan berbintang'),
+              icon: const Icon(Icons.star_outline_rounded),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => PesanBerbintangScreen(me: me),
+              )),
+            ),
+            IconButton(
+              tooltip: tr('Tambah teman'),
               icon: const Icon(Icons.person_add_alt_1_outlined),
               onPressed: () => Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => FriendSearchScreen(me: me),
               )),
             ),
             IconButton(
-              tooltip: 'Pengaturan chat & privasi',
+              tooltip: tr('Pengaturan chat & privasi'),
               icon: const Icon(Icons.tune),
               onPressed: () => Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => PengaturanChatScreen(uid: me),
               )),
             ),
           ],
-          bottom: const TabBar(tabs: [Tab(text: 'Obrolan'), Tab(text: 'Teman')]),
+          bottom: TabBar(tabs: [Tab(text: tr('Obrolan')), Tab(text: tr('Panggilan')), Tab(text: tr('Teman'))]),
         ),
         body: TabBarView(
           children: [
             _RoomList(me: me),
+            RiwayatPanggilanTab(me: me),
             _FriendsTab(me: me),
           ],
         ),
@@ -71,7 +83,7 @@ class _ChatScreenState extends State<ChatScreen> {
             builder: (_) => NewGroupScreen(me: me),
           )),
           icon: const Icon(Icons.group_add_outlined),
-          label: const Text('Grup baru'),
+          label: Text(tr('Grup baru')),
         ),
       ),
     );
@@ -80,7 +92,81 @@ class _ChatScreenState extends State<ChatScreen> {
 
 /// Chat yang tampil di daftar Obrolan (bukan permintaan masuk / yang ditolak).
 bool _tampilDiObrolan(ChatRoom r, String me) =>
-    !r.isIncomingRequest(me) && !(r.status == ChatStatus.ditolak && r.requester != me);
+    !r.isIncomingRequest(me) &&
+    !(r.status == ChatStatus.ditolak && r.requester != me) &&
+    !ObrolanSaya.instance.dari(r.id).tersembunyi(r.updatedAt);
+
+/// Chat yang disematkan di atas, lalu yang terbaru.
+List<ChatRoom> _urutkan(List<ChatRoom> rooms) {
+  final saya = ObrolanSaya.instance;
+  final semat = rooms.where((r) => saya.dari(r.id).disematkan != null).toList()
+    ..sort((a, b) => saya.dari(b.id).disematkan!.compareTo(saya.dari(a.id).disematkan!));
+  return [...semat, ...rooms.where((r) => saya.dari(r.id).disematkan == null)];
+}
+
+/// Tekan lama chat di daftar: sematkan, arsipkan, atau hapus obrolan.
+Future<void> _menuObrolan(BuildContext context, ChatRoom room, String me) async {
+  final saya = ObrolanSaya.instance;
+  final status = saya.dari(room.id);
+  final pilihan = await showModalBottomSheet<String>(
+    context: context,
+    showDragHandle: true,
+    builder: (ctx) {
+      final merah = Theme.of(ctx).colorScheme.error;
+      return SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!status.arsip)
+              ListTile(
+                leading: Icon(status.disematkan != null ? Icons.push_pin_outlined : Icons.push_pin),
+                title: Text(status.disematkan != null ? tr('Lepas sematan') : tr('Sematkan di atas')),
+                onTap: () => Navigator.pop(ctx, 'semat'),
+              ),
+            ListTile(
+              leading: Icon(status.arsip ? Icons.unarchive_outlined : Icons.archive_outlined),
+              title: Text(status.arsip ? tr('Keluarkan dari arsip') : tr('Arsipkan chat')),
+              onTap: () => Navigator.pop(ctx, 'arsip'),
+            ),
+            ListTile(
+              leading: Icon(Icons.delete_outline_rounded, color: merah),
+              title: Text(tr('Hapus obrolan'), style: TextStyle(color: merah)),
+              subtitle: Text(tr('Semua pesan di chat ini hilang dari HP-mu')),
+              onTap: () => Navigator.pop(ctx, 'hapus'),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+  if (pilihan == null || !context.mounted) return;
+  try {
+    switch (pilihan) {
+      case 'semat':
+        await saya.sematkan(me, room.id, status.disematkan == null);
+      case 'arsip':
+        await saya.arsipkan(me, room.id, !status.arsip);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(status.arsip ? tr('Chat dikeluarkan dari arsip') : tr('Chat diarsipkan')),
+          ));
+        }
+      case 'hapus':
+        final ok = await confirmDialog(
+          context,
+          title: tr('Hapus obrolan ini?'),
+          message: tr('Semua pesan di chat ini akan hilang dari daftarmu. Temanmu tetap bisa melihat pesannya. '
+              'Chat akan muncul lagi jika ada pesan baru.'),
+          action: tr('Hapus'),
+        );
+        if (!ok) return;
+        await saya.hapusObrolan(me, room.id);
+        DrafChat.instance.simpan(room.id, '', segera: true);
+    }
+  } catch (e) {
+    if (context.mounted) showError(context, e);
+  }
+}
 
 class _RoomList extends StatefulWidget {
   const _RoomList({required this.me});
@@ -102,50 +188,113 @@ class _RoomListState extends State<_RoomList> {
       stream: _lastRead,
       builder: (context, readSnap) => StreamBuilder<List<ChatRoom>>(
         stream: _rooms,
-        builder: (context, snap) {
-          if (snap.hasError) return Center(child: Text('Gagal memuat chat: ${snap.error}'));
-          final all = snap.data;
-          if (all == null) return const Center(child: CircularProgressIndicator());
-          final lastRead = readSnap.data ?? const <String, DateTime>{};
-          final requests = all.where((r) => r.isIncomingRequest(me)).toList();
-          final rooms = all.where((r) => _tampilDiObrolan(r, me)).toList();
-          return ListView(
-            padding: const EdgeInsets.only(bottom: 88),
-            children: [
-              StoryBar(me: me),
-              if (requests.isNotEmpty)
-                ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
-                    child: const Icon(Icons.mark_chat_unread_outlined),
+        builder: (context, snap) => ListenableBuilder(
+          listenable: ObrolanSaya.instance,
+          builder: (context, _) {
+            if (snap.hasError) return Center(child: Text(tr('Gagal memuat chat: {galat}', {'galat': snap.error})));
+            final all = snap.data;
+            if (all == null) return const Center(child: CircularProgressIndicator());
+            final lastRead = readSnap.data ?? const <String, DateTime>{};
+            final requests = all.where((r) => r.isIncomingRequest(me)).toList();
+            final terlihat = all.where((r) => _tampilDiObrolan(r, me)).toList();
+            final arsip = terlihat.where((r) => ObrolanSaya.instance.dari(r.id).arsip).toList();
+            final rooms = _urutkan(terlihat.where((r) => !ObrolanSaya.instance.dari(r.id).arsip).toList());
+            return ListView(
+              padding: const EdgeInsets.only(bottom: 88),
+              children: [
+                StoryBar(me: me),
+                if (requests.isNotEmpty)
+                  ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
+                      child: const Icon(Icons.mark_chat_unread_outlined),
+                    ),
+                    title: Text(tr('Permintaan pesan')),
+                    subtitle: Text(
+                        tr('{jumlah} orang yang belum berteman ingin mengirim pesan', {'jumlah': requests.length})),
+                    trailing: Badge(label: Text('${requests.length}')),
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => _RequestsScreen(me: me),
+                    )),
                   ),
-                  title: const Text('Permintaan pesan'),
-                  subtitle: Text('${requests.length} orang yang belum berteman ingin mengirim pesan'),
-                  trailing: Badge(label: Text('${requests.length}')),
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => _RequestsScreen(me: me),
-                  )),
-                ),
-              const EncryptedNote(),
-              if (rooms.isEmpty)
-                const _Empty(
-                  icon: Icons.forum_outlined,
-                  title: 'Belum ada obrolan',
-                  message: 'Tambah teman di tab Teman, lalu ketuk namanya untuk mulai chat.',
-                ),
-              for (var i = 0; i < rooms.length; i++)
-                _MasukBertahap(
-                  index: i,
-                  child: _RoomTile(
-                    key: ValueKey(rooms[i].id),
-                    room: rooms[i],
-                    me: me,
-                    lastRead: lastRead[rooms[i].id],
+                if (arsip.isNotEmpty)
+                  ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+                      child: const Icon(Icons.archive_outlined),
+                    ),
+                    title: Text(tr('Diarsipkan')),
+                    trailing: Text('${arsip.length}'),
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => _ArsipScreen(me: me),
+                    )),
                   ),
-                ),
-            ],
-          );
-        },
+                const EncryptedNote(),
+                if (rooms.isEmpty)
+                  const _Empty(
+                    icon: Icons.forum_outlined,
+                    title: 'Belum ada obrolan',
+                    message: 'Tambah teman di tab Teman, lalu ketuk namanya untuk mulai chat.',
+                  ),
+                for (var i = 0; i < rooms.length; i++)
+                  _MasukBertahap(
+                    index: i,
+                    child: _RoomTile(
+                      key: ValueKey(rooms[i].id),
+                      room: rooms[i],
+                      me: me,
+                      lastRead: lastRead[rooms[i].id],
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// Daftar chat yang diarsipkan.
+class _ArsipScreen extends StatelessWidget {
+  const _ArsipScreen({required this.me});
+  final String me;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(tr('Diarsipkan'))),
+      body: StreamBuilder<Map<String, DateTime>>(
+        stream: ChatRepository.instance.watchLastRead(me),
+        builder: (context, readSnap) => StreamBuilder<List<ChatRoom>>(
+          stream: ChatRepository.instance.watchRooms(me),
+          builder: (context, snap) => ListenableBuilder(
+            listenable: ObrolanSaya.instance,
+            builder: (context, _) {
+              final all = snap.data;
+              if (all == null) return const Center(child: CircularProgressIndicator());
+              final rooms = all.where((r) => _tampilDiObrolan(r, me) && ObrolanSaya.instance.dari(r.id).arsip).toList();
+              if (rooms.isEmpty) {
+                return const _Empty(
+                  icon: Icons.archive_outlined,
+                  title: 'Tidak ada chat yang diarsipkan',
+                  message: 'Tekan lama sebuah chat di daftar Obrolan, lalu pilih Arsipkan chat.',
+                );
+              }
+              final lastRead = readSnap.data ?? const <String, DateTime>{};
+              return ListView(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(tr('Chat yang diarsipkan tetap di sini walau ada pesan baru. '
+                        'Tekan lama untuk mengeluarkannya.')),
+                  ),
+                  for (final r in rooms) _RoomTile(key: ValueKey(r.id), room: r, me: me, lastRead: lastRead[r.id]),
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -180,7 +329,7 @@ class _RequestsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Permintaan pesan')),
+      appBar: AppBar(title: Text(tr('Permintaan pesan'))),
       body: StreamBuilder<List<ChatRoom>>(
         stream: ChatRepository.instance.watchRooms(me),
         builder: (context, snap) {
@@ -197,19 +346,19 @@ class _RequestsScreen extends StatelessWidget {
           }
           return ListView(
             children: [
-              const Padding(
-                padding: EdgeInsets.all(16),
+              Padding(
+                padding: const EdgeInsets.all(16),
                 child: Text(
-                  'Orang yang belum berteman hanya bisa mengirim 1 pesan. Buka pesannya lalu pilih '
-                  'Terima agar bisa saling membalas, atau Tolak.',
+                  tr('Orang yang belum berteman hanya bisa mengirim 1 pesan. Buka pesannya lalu pilih '
+                      'Terima agar bisa saling membalas, atau Tolak.'),
                 ),
               ),
               for (final r in requests) _RoomTile(room: r, me: me, lastRead: null),
               if (ditolak.isNotEmpty) ...[
                 const Divider(),
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
-                  child: Text('Sudah ditolak'),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                  child: Text(tr('Sudah ditolak')),
                 ),
                 for (final r in ditolak) _RoomTile(room: r, me: me, lastRead: null),
               ],
@@ -271,14 +420,14 @@ class _RoomTileState extends State<_RoomTile> {
     // Juga membungkus kunci untuk anggota yang belum punya (lihat roomKey).
     final key = await repo.roomKey(room, widget.me);
     final box = room.lastBox;
-    if (box == null) return room.isOutgoingRequest(widget.me) ? 'Menunggu diterima' : 'Belum ada pesan';
+    if (box == null) return room.isOutgoingRequest(widget.me) ? tr('Menunggu diterima') : tr('Belum ada pesan');
     if (room.lastKind == lastKindDitarik) {
-      return room.lastSender == widget.me ? 'Kamu menarik pesan' : 'Pesan ditarik';
+      return room.lastSender == widget.me ? tr('Kamu menarik pesan') : tr('Pesan ditarik');
     }
-    if (key == null) return 'Pesan terenkripsi';
+    if (key == null) return tr('Pesan terenkripsi');
     final isi = await repo.decryptIsi(room.id, MessageKind.dari(room.lastKind), box, key);
-    final text = isi?.ringkas() ?? 'Pesan terenkripsi';
-    return room.lastSender == widget.me ? 'Kamu: $text' : text;
+    final text = isi?.ringkas() ?? tr('Pesan terenkripsi');
+    return room.lastSender == widget.me ? tr('Kamu: {teks}', {'teks': text}) : text;
   }
 
   @override
@@ -314,7 +463,7 @@ class _RoomTileState extends State<_RoomTile> {
                 return Text.rich(
                   TextSpan(children: [
                     TextSpan(
-                      text: 'Draf: ',
+                      text: tr('Draf: '),
                       style: TextStyle(color: theme.colorScheme.error, fontWeight: FontWeight.w600),
                     ),
                     TextSpan(text: draf.replaceAll('\n', ' ')),
@@ -327,7 +476,7 @@ class _RoomTileState extends State<_RoomTile> {
                 future: _preview,
                 builder: (context, snap) => Text(
                   room.isOutgoingRequest(me) && room.requestSent
-                      ? 'Menunggu diterima · ${snap.data ?? ''}'
+                      ? '${tr('Menunggu diterima')} · ${snap.data ?? ''}'
                       : snap.data ?? '',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -347,20 +496,24 @@ class _RoomTileState extends State<_RoomTile> {
                 ),
               ),
               const SizedBox(height: 4),
-              AnimatedScale(
-                scale: unread > 0 ? 1 : 0,
-                duration: const Duration(milliseconds: 200),
-                child: Badge(
-                  label: Text(unread > 99 ? '99+' : '$unread'),
-                  backgroundColor: theme.colorScheme.primary,
-                  textColor: theme.colorScheme.onPrimary,
+              if (ObrolanSaya.instance.dari(room.id).disematkan != null && unread == 0)
+                Icon(Icons.push_pin, size: 16, color: theme.colorScheme.outline)
+              else
+                AnimatedScale(
+                  scale: unread > 0 ? 1 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Badge(
+                    label: Text(unread > 99 ? '99+' : '$unread'),
+                    backgroundColor: theme.colorScheme.primary,
+                    textColor: theme.colorScheme.onPrimary,
+                  ),
                 ),
-              ),
             ],
           ),
           onTap: () => Navigator.of(context).push(MaterialPageRoute(
             builder: (_) => ChatRoomScreen(chatId: room.id, me: me),
           )),
+          onLongPress: room.isIncomingRequest(me) ? null : () => _menuObrolan(context, room, me),
         );
       },
     );
@@ -395,8 +548,8 @@ class _FriendsTabState extends State<_FriendsTab> {
   Future<void> _unfriend(BuildContext context, String friend) async {
     final ok = await confirmDialog(
       context,
-      title: 'Hapus dari daftar teman?',
-      action: 'Hapus',
+      title: tr('Hapus dari daftar teman?'),
+      action: tr('Hapus'),
     );
     if (!ok) return;
     try {
@@ -417,7 +570,7 @@ class _FriendsTabState extends State<_FriendsTab> {
           stream: _friends,
           builder: (context, friendSnap) {
             if (friendSnap.hasError) {
-              return Center(child: Text('Gagal memuat teman: ${friendSnap.error}'));
+              return Center(child: Text(tr('Gagal memuat teman: {galat}', {'galat': friendSnap.error})));
             }
             final incoming = incomingSnap.data ?? const [];
             final list = friendSnap.data;
@@ -435,7 +588,7 @@ class _FriendsTabState extends State<_FriendsTab> {
                 if (incoming.isNotEmpty) ...[
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-                    child: Text('Permintaan pertemanan', style: theme.textTheme.titleSmall),
+                    child: Text(tr('Permintaan pertemanan'), style: theme.textTheme.titleSmall),
                   ),
                   for (final from in incoming)
                     ListTile(
@@ -446,7 +599,7 @@ class _FriendsTabState extends State<_FriendsTab> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
-                            tooltip: 'Tolak',
+                            tooltip: tr('Tolak'),
                             icon: const Icon(Icons.close),
                             onPressed: () => friends.reject(from: from, me: me),
                           ),
@@ -456,7 +609,7 @@ class _FriendsTabState extends State<_FriendsTab> {
                                 if (context.mounted) showError(context, e);
                               },
                             ),
-                            child: const Text('Terima'),
+                            child: Text(tr('Terima')),
                           ),
                         ],
                       ),
@@ -466,7 +619,7 @@ class _FriendsTabState extends State<_FriendsTab> {
                 if (list.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-                    child: Text('Teman (${list.length})', style: theme.textTheme.titleSmall),
+                    child: Text(tr('Teman ({jumlah})', {'jumlah': list.length}), style: theme.textTheme.titleSmall),
                   ),
                 for (final friend in list)
                   ListTile(
@@ -507,9 +660,9 @@ class _Empty extends StatelessWidget {
           children: [
             Icon(icon, size: 64, color: theme.colorScheme.outline),
             const SizedBox(height: 12),
-            Text(title, style: theme.textTheme.titleMedium),
+            Text(tr(title), style: theme.textTheme.titleMedium),
             const SizedBox(height: 4),
-            Text(message, textAlign: TextAlign.center),
+            Text(tr(message), textAlign: TextAlign.center),
           ],
         ),
       ),

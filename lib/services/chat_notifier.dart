@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
 import '../firebase_options.dart';
+import '../l10n/bahasa.dart';
 import '../models/chat_payload.dart';
 import '../models/chat_room.dart';
 import 'chat_repository.dart';
@@ -124,13 +125,13 @@ class ChatNotifier {
   Future<void> _tampilkan(String uid, ChatRoom room) async {
     final pengirim = await UserDirectory.instance.get(room.lastSender!);
     final nama =
-        pengirim == null ? 'Seseorang' : (pengirim.sebutan.isNotEmpty ? pengirim.sebutan : pengirim.namaLengkap);
-    var isi = 'Pesan baru';
+        pengirim == null ? tr('Seseorang') : (pengirim.sebutan.isNotEmpty ? pengirim.sebutan : pengirim.namaLengkap);
+    var isi = tr('Pesan baru');
     try {
       final key = await ChatRepository.instance.roomKey(room, uid).timeout(const Duration(seconds: 10));
       final box = room.lastBox;
       if (room.lastKind == lastKindDitarik) {
-        isi = 'Pesan ditarik';
+        isi = tr('Pesan ditarik');
       } else if (key != null && box != null) {
         final pesan = await ChatRepository.instance.decryptIsi(room.id, MessageKind.dari(room.lastKind), box, key);
         if (pesan != null) isi = pesan.ringkas();
@@ -141,7 +142,7 @@ class ChatNotifier {
     if (room.isIncomingRequest(uid)) {
       await NotifikasiService.instance.tampilkanChat(
         chatId: room.id,
-        judul: 'Permintaan pesan dari $nama',
+        judul: tr('Permintaan pesan dari {nama}', {'nama': nama}),
         isi: isi,
       );
     } else if (room.isGroup) {
@@ -156,6 +157,7 @@ class ChatNotifier {
 @pragma('vm:entry-point')
 void chatCallbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
+    await PengaturanBahasa.instance.muat();
     try {
       if (Firebase.apps.isEmpty) {
         await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);

@@ -4,6 +4,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/material.dart';
 
+import '../../l10n/bahasa.dart';
 import '../../models/chat_payload.dart';
 import '../../services/chat_files.dart';
 import 'chat_widgets.dart';
@@ -106,7 +107,7 @@ class _SuaraChatState extends State<SuaraChat> {
                   )
                 : IconButton(
                     padding: EdgeInsets.zero,
-                    tooltip: _status == PlayerState.playing ? 'Jeda' : 'Putar',
+                    tooltip: _status == PlayerState.playing ? tr('Jeda') : tr('Putar'),
                     onPressed: _putarAtauJeda,
                     icon: Icon(
                       _status == PlayerState.playing ? Icons.pause_circle_filled : Icons.play_circle_fill,
@@ -162,7 +163,7 @@ class BilahRekam extends StatelessWidget {
         child: Row(
           children: [
             IconButton(
-              tooltip: 'Batal',
+              tooltip: tr('Batal'),
               onPressed: onBatal,
               icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
             ),
@@ -181,7 +182,7 @@ class BilahRekam extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Merekam…',
+                        tr('Merekam…'),
                         style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                       ),
                     ),
@@ -190,7 +191,7 @@ class BilahRekam extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 4),
-            IconButton.filled(tooltip: 'Kirim pesan suara', onPressed: onKirim, icon: const Icon(Icons.send)),
+            IconButton.filled(tooltip: tr('Kirim pesan suara'), onPressed: onKirim, icon: const Icon(Icons.send)),
           ],
         ),
       ),

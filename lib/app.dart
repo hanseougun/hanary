@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+
+import 'l10n/bahasa.dart';
 
 import 'screens/intro_screen.dart';
 import 'theme/hanary_theme.dart';
@@ -10,8 +13,9 @@ class HanaryApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pengaturan = PengaturanTampilan.instance;
+    final bahasa = PengaturanBahasa.instance;
     return ListenableBuilder(
-      listenable: pengaturan,
+      listenable: Listenable.merge([pengaturan, bahasa]),
       builder: (context, _) => MaterialApp(
         title: 'Hanary',
         debugShowCheckedModeBanner: false,
@@ -19,6 +23,9 @@ class HanaryApp extends StatelessWidget {
         theme: buatTema(pengaturan.tema, Brightness.light),
         darkTheme: buatTema(pengaturan.tema, Brightness.dark),
         themeAnimationDuration: const Duration(milliseconds: 400),
+        locale: bahasa.bahasa.locale,
+        supportedLocales: [for (final b in Bahasa.values) b.locale],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
         home: const IntroScreen(),
       ),
     );

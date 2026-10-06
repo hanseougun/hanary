@@ -32,6 +32,7 @@ class ChatRoom {
     this.requester,
     this.requestSent = false,
     this.readAt = const {},
+    this.pin = const [],
   });
 
   final String id;
@@ -48,8 +49,12 @@ class ChatRoom {
   /// Versi foto grup (`groupAvatars/{id}`), null jika belum ada foto.
   final int? fotoVer;
 
-  /// Pembuat grup.
+  /// Pemilik grup (pembuatnya, atau orang yang diberi kepemilikan). Hanya
+  /// pemilik yang boleh mengeluarkan anggota lain.
   final String? admin;
+
+  /// Id pesan yang disematkan di atas chat (paling lama dulu, maks. 3).
+  final List<String> pin;
 
   /// Pesan terakhir, terenkripsi dengan kunci ruang.
   final String? lastBox;
@@ -70,6 +75,17 @@ class ChatRoom {
   /// Kapan tiap anggota terakhir membaca chat ini. Hanya diisi oleh anggota
   /// yang menyalakan "Tanda sudah dibaca".
   final Map<String, DateTime> readAt;
+
+  /// Saya pemilik grup ini. Jika pemilik sudah keluar, anggota pertama
+  /// dianggap pemilik.
+  bool isPemilik(String myUid) => isGroup && pemilik == myUid;
+
+  /// Pemilik grup saat ini.
+  String? get pemilik {
+    if (!isGroup || members.isEmpty) return null;
+    final a = admin;
+    return a != null && members.contains(a) ? a : members.first;
+  }
 
   /// Untuk chat pribadi: uid lawan bicara.
   String otherMember(String myUid) => members.firstWhere((m) => m != myUid, orElse: () => myUid);
@@ -119,6 +135,7 @@ class ChatRoom {
         for (final e in rawRead.entries)
           if (e.value is Timestamp) e.key: (e.value as Timestamp).toDate(),
       },
+      pin: List<String>.from(d['pin'] as List? ?? const []),
     );
   }
 }

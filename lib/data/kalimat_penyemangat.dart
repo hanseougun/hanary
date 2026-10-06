@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import '../l10n/bahasa.dart';
+
 /// Kalimat penyemangat yang muncul acak setiap kali Hanary dibuka.
 const kalimatPenyemangat = [
   'Sedikit demi sedikit, lama-lama tugasmu jadi bukit yang berhasil kamu daki.',
@@ -25,15 +27,15 @@ const kalimatPenyemangat = [
 ];
 
 /// Mengambil satu kalimat penyemangat secara acak.
-String kalimatAcak([Random? random]) =>
-    kalimatPenyemangat[(random ?? Random()).nextInt(kalimatPenyemangat.length)];
+/// Teksnya sudah diterjemahkan ke bahasa yang dipilih.
+String kalimatAcak([Random? random]) => tr(kalimatPenyemangat[(random ?? Random()).nextInt(kalimatPenyemangat.length)]);
 
 /// Salam sesuai jam: pagi, siang, sore, atau malam.
 String salamWaktu(DateTime waktu) {
   final jam = waktu.hour;
-  if (jam < 4) return 'Selamat malam';
-  if (jam < 11) return 'Selamat pagi';
-  if (jam < 15) return 'Selamat siang';
-  if (jam < 18) return 'Selamat sore';
-  return 'Selamat malam';
+  if (jam < 4) return tr('Selamat malam');
+  if (jam < 11) return tr('Selamat pagi');
+  if (jam < 15) return tr('Selamat siang');
+  if (jam < 18) return tr('Selamat sore');
+  return tr('Selamat malam');
 }

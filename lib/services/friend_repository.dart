@@ -15,11 +15,18 @@ class FriendRepository {
   CollectionReference<Map<String, dynamic>> get _users => _db.collection('users');
   CollectionReference<Map<String, dynamic>> get _requests => _db.collection('friendRequests');
 
-  /// Mencari pengguna berdasarkan awalan sebutan atau email lengkap.
+  /// Mencari pengguna berdasarkan awalan username, awalan sebutan, atau
+  /// email lengkap.
   Future<List<AppUser>> search(String query, {required String myUid}) async {
-    final q = query.trim().toLowerCase();
+    var q = query.trim().toLowerCase();
+    if (q.startsWith('@')) q = q.substring(1);
     if (q.isEmpty) return const [];
     final results = <String, AppUser>{};
+    final byUsername = await _users
+        .where('username', isGreaterThanOrEqualTo: q)
+        .where('username', isLessThan: '$q\uf8ff')
+        .limit(20)
+        .get();
     final bySebutan = await _users
         .where('sebutanLower', isGreaterThanOrEqualTo: q)
         .where('sebutanLower', isLessThan: '$q')
@@ -28,7 +35,7 @@ class FriendRepository {
     final byEmail = q.contains('@')
         ? (await _users.where('email', isEqualTo: query.trim()).limit(5).get()).docs
         : const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-    for (final doc in [...bySebutan.docs, ...byEmail]) {
+    for (final doc in [...byUsername.docs, ...bySebutan.docs, ...byEmail]) {
       if (doc.id == myUid) continue;
       results[doc.id] = AppUser.fromMap(doc.id, doc.data());
     }

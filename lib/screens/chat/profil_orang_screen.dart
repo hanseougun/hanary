@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/bahasa.dart';
+import '../../models/app_user.dart';
 import '../../theme/hanary_theme.dart';
 import '../../widgets/hanary_widgets.dart';
 import 'chat_widgets.dart';
@@ -25,7 +27,7 @@ class ProfilOrangScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final gaya = GayaHanary.dari(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Profil')),
+      appBar: AppBar(title: Text(tr('Profil'))),
       body: UserBuilder(
         uid: uid,
         builder: (context, user) {
@@ -78,7 +80,7 @@ class ProfilOrangScreen extends StatelessWidget {
                             onKirimPesan!();
                           },
                           icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
-                          label: const Text('Kirim pesan'),
+                          label: Text(tr('Kirim pesan')),
                           style: FilledButton.styleFrom(
                             backgroundColor: Colors.white.withValues(alpha: 0.22),
                             foregroundColor: Colors.white,
@@ -96,9 +98,24 @@ class ProfilOrangScreen extends StatelessWidget {
                   margin: EdgeInsets.zero,
                   child: Column(
                     children: [
-                      _Baris(icon: Icons.badge_outlined, label: 'Nama lengkap', nilai: user.namaLengkap),
-                      _Baris(icon: Icons.school_outlined, label: 'Sekolah / kampus', nilai: user.sekolah),
-                      _Baris(icon: Icons.class_outlined, label: 'Kelas / jurusan', nilai: user.kelas),
+                      _Baris(icon: Icons.badge_outlined, label: tr('Nama lengkap'), nilai: user.namaLengkap),
+                      _Baris(
+                        icon: Icons.alternate_email_rounded,
+                        label: tr('Username'),
+                        nilai: user.username.isEmpty ? '' : '@${user.username}',
+                      ),
+                      if (user.peran != null)
+                        _Baris(icon: Icons.interests_outlined, label: tr('Kegiatan'), nilai: user.peran!.labelTr),
+                      _Baris(
+                        icon: user.peran == Peran.pekerja ? Icons.business_outlined : Icons.school_outlined,
+                        label: user.labelTempatTr,
+                        nilai: user.sekolah,
+                      ),
+                      _Baris(
+                        icon: user.peran == Peran.pekerja ? Icons.work_outline_rounded : Icons.class_outlined,
+                        label: user.labelPosisiTr,
+                        nilai: user.kelas,
+                      ),
                     ],
                   ),
                 ),

@@ -1,3 +1,4 @@
+import '../l10n/bahasa.dart';
 import '../models/tugas.dart';
 
 /// Jenis pengingat deadline.
@@ -106,7 +107,11 @@ String teksSisa(Duration sisa) {
   final hari = menitTotal ~/ (24 * 60);
   final jam = (menitTotal % (24 * 60)) ~/ 60;
   final menit = menitTotal % 60;
-  if (hari > 0) return jam > 0 ? '$hari hari $jam jam' : '$hari hari';
-  if (jam > 0) return menit > 0 ? '$jam jam $menit menit' : '$jam jam';
-  return '$menit menit';
+  if (hari > 0) {
+    return jam > 0 ? tr('{hari} hari {jam} jam', {'hari': hari, 'jam': jam}) : tr('{hari} hari', {'hari': hari});
+  }
+  if (jam > 0) {
+    return menit > 0 ? tr('{jam} jam {menit} menit', {'jam': jam, 'menit': menit}) : tr('{jam} jam', {'jam': jam});
+  }
+  return tr('{menit} menit', {'menit': menit});
 }

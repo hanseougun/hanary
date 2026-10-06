@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:image_cropper/image_cropper.dart';
 
+import '../l10n/bahasa.dart';
+
 /// Membuka layar edit foto (potong, putar, perbesar) sebelum foto dikirim
 /// atau dipasang. Mengembalikan path foto hasil edit, atau null jika batal.
 ///
@@ -21,7 +23,7 @@ Future<String?> editGambar(
     aspectRatio: persegi ? const CropAspectRatio(ratioX: 1, ratioY: 1) : null,
     uiSettings: [
       AndroidUiSettings(
-        toolbarTitle: persegi ? 'Atur foto' : 'Edit foto',
+        toolbarTitle: persegi ? tr('Atur foto') : tr('Edit foto'),
         toolbarColor: scheme.surface,
         toolbarWidgetColor: scheme.onSurface,
         statusBarLight: scheme.brightness == Brightness.light,

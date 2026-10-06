@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/bahasa.dart';
 import '../../models/app_user.dart';
 import '../../services/chat_repository.dart';
 import '../../services/friend_repository.dart';
@@ -65,7 +66,7 @@ class _FriendSearchScreenState extends State<FriendSearchScreen> {
     final repo = FriendRepository.instance;
     final me = widget.me;
     return Scaffold(
-      appBar: AppBar(title: const Text('Tambah teman')),
+      appBar: AppBar(title: Text(tr('Tambah teman'))),
       body: Column(
         children: [
           Padding(
@@ -76,28 +77,30 @@ class _FriendSearchScreenState extends State<FriendSearchScreen> {
               textInputAction: TextInputAction.search,
               onSubmitted: (_) => _search(),
               decoration: InputDecoration(
-                labelText: 'Sebutan atau email teman',
+                labelText: tr('Username, sebutan, atau email teman'),
                 suffixIcon: IconButton(icon: const Icon(Icons.search), onPressed: _search),
               ),
             ),
           ),
           Expanded(
             child: _results == null
-                ? const Padding(
-                    padding: EdgeInsets.all(24),
+                ? Padding(
+                    padding: const EdgeInsets.all(24),
                     child: Text(
-                      'Ketik sebutan temanmu (mis. "Gun") atau alamat email Google-nya. '
-                      'Ketuk nama seseorang untuk mengirim pesan, walau belum berteman.',
+                      tr('Ketik sebutan temanmu (mis. "Gun") atau alamat email Google-nya. '
+                          'Ketuk nama seseorang untuk mengirim pesan, walau belum berteman.'),
                       textAlign: TextAlign.center,
                     ),
                   )
                 : FutureBuilder<List<AppUser>>(
                     future: _results,
                     builder: (context, snap) {
-                      if (snap.hasError) return Center(child: Text('Gagal mencari: ${snap.error}'));
+                      if (snap.hasError) {
+                        return Center(child: Text(tr('Gagal mencari: {galat}', {'galat': snap.error})));
+                      }
                       final users = snap.data;
                       if (users == null) return const Center(child: CircularProgressIndicator());
-                      if (users.isEmpty) return const Center(child: Text('Tidak ditemukan.'));
+                      if (users.isEmpty) return Center(child: Text(tr('Tidak ditemukan.')));
                       return StreamBuilder<List<String>>(
                         stream: _friends,
                         builder: (context, friendsSnap) => StreamBuilder<List<String>>(
@@ -118,26 +121,28 @@ class _FriendSearchScreenState extends State<FriendSearchScreen> {
                                       ),
                                       title: Text(u.sebutan.isNotEmpty ? u.sebutan : u.namaLengkap),
                                       subtitle: Text(
-                                        [u.namaLengkap, u.sekolah].where((s) => s.isNotEmpty).join(' · '),
+                                        [if (u.username.isNotEmpty) '@${u.username}', u.namaLengkap, u.sekolah]
+                                            .where((s) => s.isNotEmpty)
+                                            .join(' · '),
                                       ),
                                       onTap: () => _kirimPesan(u.uid),
                                       trailing: friends.contains(u.uid)
-                                          ? const Chip(label: Text('Teman'))
+                                          ? Chip(label: Text(tr('Teman')))
                                           : incoming.contains(u.uid)
                                               ? FilledButton(
                                                   onPressed: () => _run(() => repo.accept(from: u.uid, me: me)),
-                                                  child: const Text('Terima'),
+                                                  child: Text(tr('Terima')),
                                                 )
                                               : outgoing.contains(u.uid)
                                                   ? OutlinedButton(
                                                       onPressed: () =>
                                                           _run(() => repo.cancelRequest(from: me, to: u.uid)),
-                                                      child: const Text('Batalkan'),
+                                                      child: Text(tr('Batalkan')),
                                                     )
                                                   : FilledButton.tonal(
                                                       onPressed: () =>
                                                           _run(() => repo.sendRequest(from: me, to: u.uid)),
-                                                      child: const Text('Tambah'),
+                                                      child: Text(tr('Tambah')),
                                                     ),
                                     ),
                                 ],

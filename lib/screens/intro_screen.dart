@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../data/kalimat_penyemangat.dart';
+import '../l10n/bahasa.dart';
 import '../services/user_repository.dart';
 import '../theme/hanary_theme.dart';
 import '../widgets/hanary_widgets.dart';
@@ -31,8 +32,7 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
   late final _sapa = AnimationController(vsync: this, duration: const Duration(milliseconds: 2600));
 
   /// Cahaya yang terus berdenyut di belakang logo.
-  late final _denyut = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800))
-    ..repeat();
+  late final _denyut = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800))..repeat();
 
   final _kalimat = kalimatAcak();
   late final Future<String?> _namaPengguna = _ambilNama();
@@ -232,7 +232,7 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
                           child: Transform.translate(
                             offset: Offset(0, 10 * (1 - tagline.value)),
                             child: Text(
-                              'CATAT TUGAS & DEADLINE',
+                              tr('CATAT TUGAS & DEADLINE'),
                               style: TextStyle(
                                 color: Colors.white.withValues(alpha: 0.7),
                                 letterSpacing: 4,
@@ -260,9 +260,7 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
                             child: Transform.translate(
                               offset: Offset(0, 16 * (1 - salam.value)),
                               child: Text(
-                                _sebutan == null
-                                    ? 'Hai, selamat datang!'
-                                    : '${salamWaktu(DateTime.now())},',
+                                _sebutan == null ? tr('Hai, selamat datang!') : '${salamWaktu(DateTime.now())},',
                                 style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.8),
                                   fontSize: 18,
@@ -337,10 +335,10 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
                   bottom: 32 + MediaQuery.paddingOf(context).bottom,
                   child: Opacity(
                     opacity: _sapa.value > 0.6 ? 0.6 : 0,
-                    child: const Text(
-                      'Ketuk untuk lanjut',
+                    child: Text(
+                      tr('Ketuk untuk lanjut'),
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white, fontSize: 12, letterSpacing: 1),
+                      style: const TextStyle(color: Colors.white, fontSize: 12, letterSpacing: 1),
                     ),
                   ),
                 ),
