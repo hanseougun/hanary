@@ -20,6 +20,7 @@ class NewGroupScreen extends StatefulWidget {
 
 class _NewGroupScreenState extends State<NewGroupScreen> {
   final _name = TextEditingController();
+  final _deskripsi = TextEditingController();
   final _selected = <String>{};
   late final _friends = FriendRepository.instance.watchFriends(widget.me);
   bool _saving = false;
@@ -29,6 +30,7 @@ class _NewGroupScreenState extends State<NewGroupScreen> {
   @override
   void dispose() {
     _name.dispose();
+    _deskripsi.dispose();
     super.dispose();
   }
 
@@ -50,6 +52,7 @@ class _NewGroupScreenState extends State<NewGroupScreen> {
         me: widget.me,
         name: name,
         memberUids: _selected.toList(),
+        deskripsi: _deskripsi.text,
       );
       if (!mounted) return;
       await Navigator.of(context).pushReplacement(MaterialPageRoute(
@@ -81,6 +84,18 @@ class _NewGroupScreenState extends State<NewGroupScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Nama grup',
                   hintText: 'mis. Kelompok Biologi',
+                ),
+              ),
+            ),
+          if (!_addMode)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: TextField(
+                controller: _deskripsi,
+                maxLength: 300,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  labelText: 'Deskripsi grup (boleh dikosongkan)',
                 ),
               ),
             ),

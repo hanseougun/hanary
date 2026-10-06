@@ -11,6 +11,11 @@ class AppUser {
     this.kelas = '',
     this.bio = '',
     this.fotoUrl,
+    this.fotoVer,
+    this.online = false,
+    this.lastSeen,
+    this.tampilOnline = true,
+    this.kirimDibaca = true,
   });
 
   final String uid;
@@ -23,6 +28,25 @@ class AppUser {
   final String kelas;
   final String bio;
   final String? fotoUrl;
+
+  /// Versi foto profil yang diunggah sendiri (`avatars/{uid}`). Jika null,
+  /// dipakai foto akun Google ([fotoUrl]).
+  final int? fotoVer;
+
+  /// Status online yang ditulis aplikasi. Dianggap kedaluwarsa jika
+  /// [lastSeen] sudah lama (mis. aplikasi ditutup paksa).
+  final bool online;
+  final DateTime? lastSeen;
+
+  /// Pengaturan privasi: tampilkan status online ke orang lain.
+  final bool tampilOnline;
+
+  /// Pengaturan privasi: kirim tanda "sudah dibaca".
+  final bool kirimDibaca;
+
+  /// Sedang online sekarang?
+  bool get sedangOnline =>
+      online && lastSeen != null && DateTime.now().difference(lastSeen!) < const Duration(minutes: 5);
 
   /// Profil dianggap lengkap jika nama lengkap dan sebutan sudah diisi.
   bool get isComplete => namaLengkap.trim().isNotEmpty && sebutan.trim().isNotEmpty;
@@ -37,6 +61,11 @@ class AppUser {
       kelas: data['kelas'] as String? ?? '',
       bio: data['bio'] as String? ?? '',
       fotoUrl: data['fotoUrl'] as String?,
+      fotoVer: (data['fotoVer'] as num?)?.toInt(),
+      online: data['online'] == true,
+      lastSeen: (data['lastSeen'] as Timestamp?)?.toDate(),
+      tampilOnline: (data['privasi'] as Map?)?['online'] != false,
+      kirimDibaca: (data['privasi'] as Map?)?['dibaca'] != false,
     );
   }
 
@@ -70,6 +99,11 @@ class AppUser {
       kelas: kelas ?? this.kelas,
       bio: bio ?? this.bio,
       fotoUrl: fotoUrl,
+      fotoVer: fotoVer,
+      online: online,
+      lastSeen: lastSeen,
+      tampilOnline: tampilOnline,
+      kirimDibaca: kirimDibaca,
     );
   }
 }

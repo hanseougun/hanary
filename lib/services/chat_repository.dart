@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cryptography/cryptography.dart';
 
+import '../models/chat_payload.dart';
 import '../models/chat_room.dart';
 import 'chat_crypto.dart';
 import 'chat_keys.dart';
@@ -86,28 +87,50 @@ class ChatRepository {
   }
 
   /// Membuka (atau membuat) chat pribadi dengan [other]. Mengembalikan id chat.
+  ///
+  /// Jika belum berteman, chat dibuat sebagai "permintaan pesan": saya hanya
+  /// boleh mengirim satu pesan sampai [other] menerimanya.
   Future<String> openPrivate({required String me, required String other}) async {
     await ChatKeys.instance.keyPairFor(me);
     final id = ChatRoom.privateId(me, other);
     final ref = _chats.doc(id);
     final snap = await ref.get();
+    final friend = (await _db.collection('users').doc(me).collection('teman').doc(other).get()).exists;
     if (!snap.exists) {
       final key = await ChatCrypto.newRoomKey();
       await ref.set({
         'type': 'pribadi',
         'members': [me, other],
         'keys': await _wrapFor([me, other], key, id),
+        if (friend) 'status': ChatStatus.aktif.name,
+        if (!friend) ...{
+          'status': ChatStatus.permintaan.name,
+          'requester': me,
+          'requestSent': false,
+        },
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
+    } else if (friend && snap.data()?['status'] == ChatStatus.permintaan.name) {
+      // Sudah berteman sekarang: permintaan otomatis menjadi chat biasa.
+      await ref.update({'status': ChatStatus.aktif.name});
     }
     return id;
   }
+
+  /// Menerima permintaan pesan: chat menjadi chat biasa.
+  Future<void> acceptRequest(String chatId) =>
+      _chats.doc(chatId).update({'status': ChatStatus.aktif.name});
+
+  /// Menolak permintaan pesan: pengirim tidak bisa mengirim lagi.
+  Future<void> rejectRequest(String chatId) =>
+      _chats.doc(chatId).update({'status': ChatStatus.ditolak.name});
 
   Future<String> createGroup({
     required String me,
     required String name,
     required List<String> memberUids,
+    String deskripsi = '',
   }) async {
     await ChatKeys.instance.keyPairFor(me);
     final ref = _chats.doc();
@@ -116,6 +139,7 @@ class ChatRepository {
     await ref.set({
       'type': 'grup',
       'name': name.trim(),
+      'deskripsi': deskripsi.trim(),
       'admin': me,
       'members': members,
       'keys': await _wrapFor(members, key, ref.id),
@@ -123,6 +147,15 @@ class ChatRepository {
       'updatedAt': FieldValue.serverTimestamp(),
     });
     return ref.id;
+  }
+
+  /// Mengubah nama, deskripsi, atau versi foto grup.
+  Future<void> updateGroup(String chatId, {String? name, String? deskripsi, int? fotoVer}) {
+    return _chats.doc(chatId).update({
+      if (name != null) 'name': name.trim(),
+      if (deskripsi != null) 'deskripsi': deskripsi.trim(),
+      if (fotoVer != null) 'fotoVer': fotoVer,
+    });
   }
 
   Future<void> addMembers(ChatRoom room, String me, List<String> uids) async {
@@ -139,6 +172,7 @@ class ChatRepository {
     return _chats.doc(room.id).update({
       'members': FieldValue.arrayRemove([me]),
       'keys.$me': FieldValue.delete(),
+      'readAt.$me': FieldValue.delete(),
     });
   }
 
@@ -148,26 +182,93 @@ class ChatRepository {
         .collection('messages')
         .orderBy('createdAt', descending: true)
         .limit(300)
-        .snapshots()
+        .snapshots(includeMetadataChanges: true)
         .map((s) => s.docs.map(ChatMessage.fromSnapshot).toList());
   }
 
-  Future<void> send(ChatRoom room, String me, SecretKey key, String text) async {
-    final box = await ChatCrypto.encryptText(text, key, room.id);
+  Future<void> send(ChatRoom room, String me, SecretKey key, String text) =>
+      sendIsi(room, me, key, IsiPesan.teks(text));
+
+  /// Mengirim pesan (teks, foto, file, atau tugas). Isinya dienkripsi dulu.
+  Future<void> sendIsi(ChatRoom room, String me, SecretKey key, IsiPesan isi) async {
+    final plain = isi.encode();
+    final box = await ChatCrypto.encryptText(plain, key, room.id);
     final msgRef = _chats.doc(room.id).collection('messages').doc();
-    _plain['${room.id}|$box'] = text;
+    _plain['${room.id}|$box'] = plain;
     final batch = _db.batch();
     batch.set(msgRef, {
       'senderId': me,
       'box': box,
+      'kind': isi.kind.name,
       'createdAt': FieldValue.serverTimestamp(),
     });
     batch.update(_chats.doc(room.id), {
       'lastBox': box,
+      'lastKind': isi.kind.name,
       'lastSender': me,
       'updatedAt': FieldValue.serverTimestamp(),
+      if (room.isOutgoingRequest(me)) 'requestSent': true,
     });
     await batch.commit();
+    _db.collection('users').doc(me).collection('bacaan').doc(room.id).set({
+      'at': FieldValue.serverTimestamp(),
+    }).catchError((Object _) {});
+    _pingInbox(room, me);
+  }
+
+  /// Memberi tahu anggota lain bahwa ada pesan baru (dipakai pemeriksaan
+  /// notifikasi di latar belakang). Gagal pun tidak masalah.
+  void _pingInbox(ChatRoom room, String me) {
+    final batch = _db.batch();
+    for (final m in room.members) {
+      if (m == me) continue;
+      batch.set(_db.collection('inbox').doc(m), {
+        'at': FieldValue.serverTimestamp(),
+        'from': me,
+        'chat': room.id,
+      });
+    }
+    batch.commit().catchError((Object _) {});
+  }
+
+  /// Kapan saya terakhir membaca tiap chat (`users/{me}/bacaan/{chatId}`).
+  /// Hanya bisa dibaca oleh saya sendiri.
+  Stream<Map<String, DateTime>> watchLastRead(String me) {
+    return _db.collection('users').doc(me).collection('bacaan').snapshots().map((s) => {
+          for (final d in s.docs)
+            if (d.data()['at'] is Timestamp) d.id: (d.data()['at'] as Timestamp).toDate(),
+        });
+  }
+
+  /// Menandai chat sudah saya baca. Jika [publish], anggota lain juga bisa
+  /// melihat tanda "sudah dibaca".
+  Future<void> markRead(ChatRoom room, String me, {required bool publish}) async {
+    await _db
+        .collection('users')
+        .doc(me)
+        .collection('bacaan')
+        .doc(room.id)
+        .set({'at': FieldValue.serverTimestamp()});
+    if (room.status == ChatStatus.aktif) {
+      await _chats.doc(room.id).update({
+        'readAt.$me': publish ? FieldValue.serverTimestamp() : FieldValue.delete(),
+      });
+    }
+  }
+
+  /// Jumlah pesan dari orang lain sejak [since].
+  Future<int> unreadCount(String chatId, DateTime? since) async {
+    Query<Map<String, dynamic>> q = _chats.doc(chatId).collection('messages');
+    if (since != null) q = q.where('createdAt', isGreaterThan: Timestamp.fromDate(since));
+    // Pesan saya sendiri tidak terhitung karena mengirim pesan juga
+    // memperbarui waktu baca saya (lihat sendIsi).
+    return (await q.count().get()).count ?? 0;
+  }
+
+  /// Membuka isi pesan. Mengembalikan `null` jika gagal.
+  Future<IsiPesan?> decryptIsi(String chatId, MessageKind kind, String box, SecretKey key) async {
+    final plain = await decrypt(chatId, box, key);
+    return plain == null ? null : IsiPesan.parse(kind, plain);
   }
 
   /// Membuka teks terenkripsi. Mengembalikan `null` jika gagal.

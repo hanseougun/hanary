@@ -118,6 +118,25 @@ class ChatCrypto {
     return utf8.decode(bytes);
   }
 
+  /// Mengenkripsi potongan file. [label] (mis. id file + nomor potongan)
+  /// mengikat potongan ke tempatnya agar tidak bisa ditukar.
+  static Future<List<int>> encryptBytes(List<int> data, SecretKey roomKey, String label) async {
+    final box = await _aes.encrypt(data, secretKey: roomKey, aad: utf8.encode(label));
+    return box.concatenation();
+  }
+
+  static Future<List<int>> decryptBytes(List<int> data, SecretKey roomKey, String label) {
+    return _aes.decrypt(
+      SecretBox.fromConcatenation(
+        data,
+        nonceLength: _aes.nonceLength,
+        macLength: _aes.macAlgorithm.macLength,
+      ),
+      secretKey: roomKey,
+      aad: utf8.encode(label),
+    );
+  }
+
   static SecretBox _boxFrom(String b64) => SecretBox.fromConcatenation(
         base64Decode(b64),
         nonceLength: _aes.nonceLength,

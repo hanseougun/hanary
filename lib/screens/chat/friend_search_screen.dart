@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../models/app_user.dart';
+import '../../services/chat_repository.dart';
 import '../../services/friend_repository.dart';
+import 'chat_room_screen.dart';
 import 'chat_widgets.dart';
 
 /// Mencari pengguna lain berdasarkan sebutan atau email, lalu
@@ -43,6 +45,20 @@ class _FriendSearchScreenState extends State<FriendSearchScreen> {
     }
   }
 
+  /// Membuka chat. Jika belum berteman, chat menjadi permintaan pesan
+  /// (hanya boleh 1 pesan sampai diterima).
+  Future<void> _kirimPesan(String other) async {
+    try {
+      final id = await ChatRepository.instance.openPrivate(me: widget.me, other: other);
+      if (!mounted) return;
+      await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => ChatRoomScreen(chatId: id, me: widget.me),
+      ));
+    } catch (e) {
+      if (mounted) showError(context, e);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final repo = FriendRepository.instance;
@@ -69,7 +85,8 @@ class _FriendSearchScreenState extends State<FriendSearchScreen> {
                 ? const Padding(
                     padding: EdgeInsets.all(24),
                     child: Text(
-                      'Ketik sebutan temanmu (mis. "Gun") atau alamat email Google-nya.',
+                      'Ketik sebutan temanmu (mis. "Gun") atau alamat email Google-nya. '
+                      'Ketuk nama seseorang untuk mengirim pesan, walau belum berteman.',
                       textAlign: TextAlign.center,
                     ),
                   )
@@ -99,6 +116,7 @@ class _FriendSearchScreenState extends State<FriendSearchScreen> {
                                       subtitle: Text(
                                         [u.namaLengkap, u.sekolah].where((s) => s.isNotEmpty).join(' · '),
                                       ),
+                                      onTap: () => _kirimPesan(u.uid),
                                       trailing: friends.contains(u.uid)
                                           ? const Chip(label: Text('Teman'))
                                           : incoming.contains(u.uid)

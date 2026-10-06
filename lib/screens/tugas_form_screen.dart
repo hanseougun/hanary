@@ -7,6 +7,7 @@ import '../models/tugas.dart';
 import '../services/drive_service.dart';
 import '../services/lampiran_service.dart';
 import '../services/tugas_repository.dart';
+import 'chat/bagikan_tugas_screen.dart';
 
 /// Form tambah/edit tugas: judul, mapel, deadline, status, catatan, dan lampiran.
 class TugasFormScreen extends StatefulWidget {
@@ -194,6 +195,14 @@ class _TugasFormScreenState extends State<TugasFormScreen> {
       appBar: AppBar(
         title: Text(_isBaru ? 'Tugas baru' : 'Edit tugas'),
         actions: [
+          if (!_isBaru)
+            IconButton(
+              tooltip: 'Bagikan ke teman atau grup',
+              icon: const Icon(Icons.share_outlined),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => BagikanTugasScreen(me: widget.uid, tugas: widget.tugas!),
+              )),
+            ),
           if (!_isBaru)
             IconButton(
               tooltip: 'Hapus tugas',
