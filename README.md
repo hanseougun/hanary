@@ -6,6 +6,9 @@ Aplikasi pengingat tugas dan deadline (Flutter + Firebase).
 (nama lengkap, sebutan, sekolah, kelas, bio) yang disimpan di Firestore,
 Beranda, dan navigasi bawah Beranda / Chat / Profil.
 
+**Tahap 3 (chat):** tambah teman (cari sebutan/email, kirim permintaan, terima/tolak),
+chat pribadi, grup (buat, tambah anggota, keluar), dengan enkripsi end-to-end.
+
 ## Struktur
 
 ```
@@ -22,7 +25,12 @@ lib/
     profile_form_screen.dart isi/edit profil
     home_shell.dart          navigasi bawah
     beranda_screen.dart
-    chat_screen.dart         placeholder (tahap 3)
+    chat_screen.dart         tab Chat: daftar obrolan dan teman
+    chat/                    ruang chat, info grup, buat grup, cari teman
+  services/chat_crypto.dart  enkripsi (X25519 + HKDF-SHA256 + AES-256-GCM)
+  services/chat_keys.dart    kunci privat di penyimpanan aman HP, kunci publik di Firestore
+  services/chat_repository.dart  ruang chat dan pesan
+  services/friend_repository.dart  pertemanan
     profile_screen.dart
 firestore.rules              aturan keamanan Firestore
 ```
@@ -75,3 +83,28 @@ tambahkan `CFBundleURLTypes` berisi `REVERSED_CLIENT_ID` dari `GoogleService-Inf
 
 `users/{uid}`: `email`, `namaLengkap`, `sebutan`, `sebutanLower` (untuk pencarian teman nanti),
 `sekolah`, `kelas`, `bio`, `fotoUrl`, `createdAt`, `updatedAt`.
+
+`friendRequests/{dari}_{ke}`: `from`, `to`, `createdAt`.
+`users/{uid}/teman/{uidTeman}`: `since`.
+`publicKeys/{uid}`: `pub` (kunci publik X25519, base64).
+`chats/{id}`: `type` (`pribadi`/`grup`), `name`, `admin`, `members`, `keys.{uid}` (kunci ruang
+yang dibungkus untuk tiap anggota), `lastBox` (pesan terakhir, terenkripsi), `lastSender`, `updatedAt`.
+Chat pribadi memakai id `p_{uidA}_{uidB}` (uid diurutkan).
+`chats/{id}/messages/{msgId}`: `senderId`, `box` (isi pesan terenkripsi), `createdAt`.
+
+## Enkripsi chat
+
+- Tiap HP membuat pasangan kunci X25519. Kunci privat disimpan di penyimpanan aman HP
+  (`flutter_secure_storage`) dan tidak pernah dikirim. Kunci publik ditaruh di `publicKeys/{uid}`.
+- Tiap ruang chat punya kunci AES-256 acak. Kunci itu dibungkus untuk tiap anggota
+  (ECDH X25519 dengan kunci sementara + HKDF-SHA256 + AES-GCM) dan disimpan di `chats/{id}.keys`.
+- Isi pesan dienkripsi AES-256-GCM dengan kunci ruang (id chat sebagai data tambahan).
+- Jika kunci publik anggota berubah (ganti HP/install ulang) atau anggota belum punya kunci,
+  anggota lain yang membuka aplikasi otomatis membungkus ulang kunci ruang untuknya.
+
+Batasan: server tetap tahu siapa chat dengan siapa, kapan, dan nama grup; kunci publik tidak
+diverifikasi (tidak ada "kode keamanan"), jadi pemilik server secara teori bisa menyisipkan kunci palsu;
+satu akun dipakai di satu HP; anggota yang keluar grup masih memegang kunci lama
+(tapi aturan Firestore menolak dia membaca pesan baru).
+
+Aturan Firestore diuji dengan Firebase Emulator (pertemanan, kunci publik, chat pribadi, pesan, grup).
