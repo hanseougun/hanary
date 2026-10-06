@@ -39,12 +39,12 @@ jobs:
       - run: flutter build apk --release
         env:
           TUGASKU_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-      - run: cp build/app/outputs/flutter-apk/app-release.apk tugasku.apk
+      - run: cp build/app/outputs/flutter-apk/app-release.apk hanary.apk
       - uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: v0.1.${{ github.run_number }}
-          name: Tugasku 0.1.${{ github.run_number }}
-          body: Download tugasku.apk di bawah, lalu install di HP Android.
-          files: tugasku.apk
+          name: Hanary 0.1.${{ github.run_number }}
+          body: Download hanary.apk di bawah, lalu install di HP Android.
+          files: hanary.apk
           make_latest: true

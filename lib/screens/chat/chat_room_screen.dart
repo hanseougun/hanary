@@ -277,7 +277,7 @@ class _WaitingForKey extends StatelessWidget {
             const SizedBox(height: 4),
             const Text(
               'HP ini belum punya kunci untuk membuka chat ini. Kunci dikirim otomatis '
-              'saat temanmu membuka aplikasi Tugasku. Biarkan halaman ini terbuka atau cek lagi nanti.',
+              'saat temanmu membuka aplikasi Hanary. Biarkan halaman ini terbuka atau cek lagi nanti.',
               textAlign: TextAlign.center,
             ),
           ],
